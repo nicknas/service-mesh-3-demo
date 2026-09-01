@@ -1,0 +1,25 @@
+# Network policy para permitir el acceso directo al distribuidor de tempo desde el 
+# ns del control plane <- por defecto solo habilita el acceso al gateway
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: distributor-update
+  namespace: tracing-system
+spec:
+  ingress:
+    - from: 
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: istio-system
+      ports:
+      - port: 4317
+        protocol: TCP
+      - port: 4318
+        protocol: TCP
+    # Permite el tráfico dentro del ns
+    - from:
+      - podSelector: {}
+  # La regla se aplica a todos los pods del ns donde se define
+  podSelector: {}
+  policyTypes:
+  - Ingress

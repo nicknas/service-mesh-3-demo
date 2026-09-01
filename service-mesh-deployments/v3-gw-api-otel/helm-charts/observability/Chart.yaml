@@ -1,0 +1,21 @@
+apiVersion: v2
+name: observability
+description: A Helm chart for Kubernetes
+type: application
+version: 0.1.0
+
+dependencies:
+  - name: kiali
+    version: 0.1.0
+    repository: file://charts/kiali
+    condition: kiali.enabled
+
+  - name: otel-collector
+    version: 0.1.0
+    repository: file:/charts/otel-collector
+    condition: otel-collector.enabled
+
+  - name: tempo-stack
+    version: 0.1.0
+    repository: file:/charts/tempo-stack
+    condition: tempo-stack.enabled

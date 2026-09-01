@@ -1,0 +1,22 @@
+#--------------------------------------------------------------------
+# Configures:
+#   - Prometheus as the metrics provider
+#   - OpenTelemetry as the tracing provider
+#--------------------------------------------------------------------
+apiVersion: telemetry.istio.io/v1
+kind: Telemetry
+metadata:
+  name: otel-demo
+  namespace: istio-system
+spec:
+  metrics:
+  - providers:
+    - name: prometheus
+#    - name: otel
+#    randomSamplingPercentage: 100
+  tracing:
+  - providers:
+    # Tiene que coincidir con el nombre que usamos en la propiedad
+    # 'spec.values.meshConfig.extensionProviders' de istio
+    - name: otel
+    randomSamplingPercentage: 100

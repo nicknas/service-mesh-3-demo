@@ -1,0 +1,13 @@
+Ficheros:
+
+* *generate-traffic.sh:* genera tráfico usando el ingress. Hay que configurar el nombre de host en el propio script:
++
+[source, bash]
+----
+HOSTNAME=bookinfo.rabadillo.tia.com
+----
+
+* *Directorio 'internal-traffic':* contiene un Dockerfile para crear una imagen que llama a dos endpoints de la aplicación bookinfo usando los services. La idea es usar la imagen para desplegar un contenedor que genere tráfico continuamente desde dentro del cluster. Está basada en Alpine e incluye:
+** curl
+** netcat
+** openssl

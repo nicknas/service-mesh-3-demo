@@ -1,0 +1,9 @@
+# Subcharts
+kiali:
+  enabled: true
+
+otel-collector:
+  enabled: true
+
+tempo-stack:
+  enabled: true  

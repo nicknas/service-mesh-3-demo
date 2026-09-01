@@ -1,0 +1,11 @@
+istio:
+  name: default
+  namespace: istio-system
+  #  ocp 4.18
+  #  version: v1.28.5
+  # ocp 4.16
+  version: v1.26.8
+  pilot:
+    replicas: 1
+  cni: 
+    namespace: istio-cni

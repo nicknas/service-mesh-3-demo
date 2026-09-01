@@ -1,0 +1,18 @@
+# Rol con permisos de lectura para los tenants
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: tempostack-traces-reader
+rules:
+  # Sólo se aplica a los recursos del operador de Tempo
+  - apiGroups:
+      - 'tempo.grafana.com'
+    # Lista de los tenants
+    resources:
+      - bookinfo
+    # Se aplica a los objetos del resource cuyo nombre es 'traces'
+    # (traces de dev y traces de prod?)
+    resourceNames:
+      - traces
+    verbs:
+      - 'get'

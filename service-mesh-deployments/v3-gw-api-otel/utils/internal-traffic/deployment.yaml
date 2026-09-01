@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bookinfo-test
+spec: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bookinfo-test
+  namespace: bookinfo-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bookinfo-test
+  template:
+    metadata:
+      labels:
+        app: bookinfo-test
+    spec:
+      containers:
+      - name: bookinfo-test
+        image: quay.io/rlnieto/bookinfo-test:1.0.1
+        imagePullPolicy: Always
+        # Por si queremos cambiar el entrypoint
+        #command: ["/bin/bash"]
+        tty: true
+      # OpenShift requiere usuario no root
+#      securityContext:
+#        runAsUser: 1001
+#        runAsNonRoot: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bookinfo-test
+  namespace: bookinfo-test
+spec:
+  selector:
+    app: bookinfo-test
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080

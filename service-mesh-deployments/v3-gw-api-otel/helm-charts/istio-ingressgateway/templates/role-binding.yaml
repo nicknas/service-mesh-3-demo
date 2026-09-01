@@ -1,0 +1,12 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: "{{ .Values.istioIngressGateway.name }}-sds"
+  namespace: {{ .Values.istioIngressGateway.namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: "{{ .Values.istioIngressGateway.name }}-sds"
+subjects:
+- kind: ServiceAccount
+  name: default

@@ -1,0 +1,37 @@
+apiVersion: sailoperator.io/v1
+kind: Istio
+metadata:
+  name: {{ .Values.istio.name }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"  
+spec:
+  namespace: {{ .Values.istio.namespace }}
+  # Defines how the operator updates the control plane:
+  #   - InPlace (recommended)
+  #   - RevisioBased
+  updateStrategy:
+    type: InPlace
+    inactiveRevisionDeletionGracePeriodSeconds: 30
+  values:
+    pilot:
+      autoscaleEnabled: false
+      replicaCount: {{ .Values.istio.pilot.replicas }}
+    global:
+      proxy:
+        holdApplicationUntilProxyStarts: true
+    meshConfig:
+      enableTracing: true
+      extensionProviders:
+        # Nombre del proveedor de la extensión. Este es el nombre que 
+        # referenciaremos en el recurso de tipo Telemetry 
+      - name: otel
+        opentelemetry:
+          port: 4317
+          service: otel-collector.istio-system.svc.cluster.local    
+      enableAutoMtls: false
+      # Esta es la etiqueta que tenemos que añadir a los ns
+      # en los que queremos que sean monitorizados por istio
+      discoverySelectors:
+        - matchLabels:
+            istio-discovery: enabled
+  version: {{ .Values.istio.version }}

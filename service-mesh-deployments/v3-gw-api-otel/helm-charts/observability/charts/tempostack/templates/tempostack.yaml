@@ -1,0 +1,60 @@
+# TempoStack CRD
+apiVersion: tempo.grafana.com/v1alpha1
+kind: TempoStack
+metadata:
+  name: tempo
+  namespace: tracing-system
+# Red Hat supports only the custom resource options that are 
+# available in the distributed tracing documentation
+spec:
+  managementState: Managed
+  # Traces storage
+  storage:
+    secret:
+      name: minio
+      type: s3
+  # Size of the persistent volume claim for the Tempo Write-Ahead Logging (WAL)
+  storageSize: 1Gi
+  resources:
+    total:
+      limits:
+        memory: 2Gi
+        cpu: '2'
+  tenants:
+    # Usamos la autenticación de ocp
+    mode: openshift
+    # Pero definimos solamente 2 tenants, no 1 tenant por cada ns
+    # Además asociamos un id a cada tenant, que será el que se use para
+    # etiquetar las trazas
+    # Ingesta:
+    #   - Una aplicación envía trazas al tenant 'dev' enviando el token asociado a su sa
+    #   - El gateway de Tempo valida el token
+    #   - El gateway inyecta la cabecera con el 'tenantID' asociado a 'dev'
+    #   - La traza se guada en el object storage
+    # Consulta:
+    #   - Un desarrollador busca trazas en el tenant 'dev'
+    #   - El gateway comprueba si el usuario ocp del desarrollador tiene permisos de lectura en 'dev'
+    #   - Si tiene permisos solamente podrá ver los datos etiquetados con el tenantId de 'dev'
+    authentication:
+      - tenantName: bookinfo
+        tenantId: "1610b0c3-c509-4592-a256-a1871353dbfa"
+#      - tenantName: prod
+#        tenantId: "1610b0c3-c509-4592-a256-a1871353dbfb"
+  template:
+    gateway:
+      enabled: true
+      rbac:
+        enabled: false
+      ingress:
+        type: route
+        route:
+          termination: reencrypt           
+# No me acepta esta propiedad -> revisar si es correcta
+#          insecureEdgeTerminationPolicy: Redirect        
+    queryFrontend:
+      # Esto habilita la ui de jaeger en la url:
+      #   http://<gateway_ingress>/api/traces/v1/<tenant_name>/search
+      # Para este ejemplo:
+      #  https://tempo-<tempo-stack-cr-name>-gateway-openshift-tempo-operator.apps.<cluster-domain>/api/traces/v1/dev/search
+      jaegerQuery:
+        enabled: true

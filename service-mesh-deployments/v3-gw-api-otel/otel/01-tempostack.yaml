@@ -1,0 +1,122 @@
+# Namespace para los componentes de tracing distribuído
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tracing-system
+---
+# Secret con las credenciales de acceso a minio
+apiVersion: v1
+kind: Secret
+metadata:
+  name: minio
+  namespace: tracing-system
+type: Opaque
+stringData:
+  endpoint: "http://papandujo.tia.com:9000"
+  bucket: "tempo"
+  access_key_id: "adminuser"
+  access_key_secret: "adminuser"
+  insecure: "true"  # HTTP (sin TLS)
+---
+# Plugin para consultar las trazas de Tempo desde el menú 'observe/traces'
+# Es necesario instalar el cluster observability operator
+apiVersion: observability.openshift.io/v1alpha1
+kind: UIPlugin
+metadata:
+  name: distributed-tracing
+spec:
+  type: DistributedTracing
+---
+# Rol con permisos de lectura para los tenants
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: tempostack-traces-reader
+rules:
+  # Sólo se aplica a los recursos del operador de Tempo
+  - apiGroups:
+      - 'tempo.grafana.com'
+    # Lista de los tenants
+    resources:
+      - bookinfo
+    # Se aplica a los objetos del resource cuyo nombre es 'traces'
+    # (traces de dev y traces de prod?)
+    resourceNames:
+      - traces
+    verbs:
+      - 'get'
+--- 
+# Permitimos la lectura a cualquier usuario autenticado
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: tempostack-traces-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: tempostack-traces-reader
+subjects:
+  - kind: Group
+    apiGroup: rbac.authorization.k8s.io
+    name: system:authenticated
+---
+# TempoStack CRD
+apiVersion: tempo.grafana.com/v1alpha1
+kind: TempoStack
+metadata:
+  name: tempo
+  namespace: tracing-system
+# Red Hat supports only the custom resource options that are 
+# available in the distributed tracing documentation
+spec:
+  managementState: Managed
+  # Traces storage
+  storage:
+    secret:
+      name: minio
+      type: s3
+  # Size of the persistent volume claim for the Tempo Write-Ahead Logging (WAL)
+  storageSize: 1Gi
+  resources:
+    total:
+      limits:
+        memory: 2Gi
+        cpu: 2000m
+  tenants:
+    # Usamos la autenticación de ocp
+    mode: openshift
+    # Pero definimos solamente 2 tenants, no 1 tenant por cada ns
+    # Además asociamos un id a cada tenant, que será el que se use para
+    # etiquetar las trazas
+    # Ingesta:
+    #   - Una aplicación envía trazas al tenant 'dev' enviando el token asociado a su sa
+    #   - El gateway de Tempo valida el token
+    #   - El gateway inyecta la cabecera con el 'tenantID' asociado a 'dev'
+    #   - La traza se guada en el object storage
+    # Consulta:
+    #   - Un desarrollador busca trazas en el tenant 'dev'
+    #   - El gateway comprueba si el usuario ocp del desarrollador tiene permisos de lectura en 'dev'
+    #   - Si tiene permisos solamente podrá ver los datos etiquetados con el tenantId de 'dev'
+    authentication:
+      - tenantName: bookinfo
+        tenantId: "1610b0c3-c509-4592-a256-a1871353dbfa"
+#      - tenantName: prod
+#        tenantId: "1610b0c3-c509-4592-a256-a1871353dbfb"
+  template:
+    gateway:
+      enabled: true
+      rbac:
+        enabled: false
+      ingress:
+        type: route
+        route:
+          termination: reencrypt           
+          insecureEdgeTerminationPolicy: Redirect        
+    queryFrontend:
+      # Esto habilita la ui de jaeger en la url:
+      #   http://<gateway_ingress>/api/traces/v1/<tenant_name>/search
+      # Para este ejemplo:
+      #  https://tempo-<tempo-stack-cr-name>-gateway-openshift-tempo-operator.apps.<cluster-domain>/api/traces/v1/dev/search
+      jaegerQuery:
+        enabled: true
+

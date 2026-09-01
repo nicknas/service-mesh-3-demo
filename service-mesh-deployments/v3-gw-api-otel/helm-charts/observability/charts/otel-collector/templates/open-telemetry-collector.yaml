@@ -1,0 +1,64 @@
+# Definimos el colector
+kind: OpenTelemetryCollector
+apiVersion: opentelemetry.io/v1beta1
+metadata:
+  name: otel
+  namespace: istio-system
+spec:
+  serviceAccount: otel-collector
+#  automountServiceAccountToken: true
+  observability:
+    metrics: {}
+# No me acepta esta propiedad -> revisar si es correcta
+#    deploymentUpdateStrategy: {}
+  config:
+    extensions:
+      # Extensión para obtener un token de la sa
+      bearertokenauth:
+        filename: /var/run/secrets/kubernetes.io/serviceaccount/token  
+    # A dónde envía los datos
+    exporters:
+      debug:
+        # Mostramos el contenido completo de los spans
+        verbosity: detailed
+      otlp/tempo:
+        endpoint: tempo-tempo-gateway.tracing-system.svc.cluster.local:8090
+        tls:
+          insecure: false
+          insecure_skip_verify: true
+        auth:
+          # La extensión que hemos indicado en spec.config.extensions
+          authenticator: bearertokenauth
+        headers:
+          X-Scope-OrgID: "bookinfo"
+    # Entrada de datos
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: '0.0.0.0:4317'
+#          http: {}
+    service:
+      extensions:
+        - bearertokenauth    
+      pipelines:
+        logs:
+          receivers: [otlp]
+          exporters: [debug, otlp/tempo]
+        metrics:
+          receivers: [otlp]
+          exporters: [debug, otlp/tempo]
+        traces:
+          receivers: [otlp]
+          exporters: [debug, otlp/tempo]
+      # Expone las métricas del colector
+      telemetry:
+      #  logs:
+      #    level: debug
+        metrics:
+          readers:
+          - pull:
+              exporter:
+                prometheus:
+                  host: 0.0.0.0
+                  port: 8888          

@@ -1,0 +1,8 @@
+subscription:
+  channel: stable
+  installPlanApproval: Automatic
+  name: tempo-product
+  namespace: openshift-tempo-operator
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  startingCSV: tempo-operator.v0.21.0-3

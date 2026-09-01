@@ -1,0 +1,27 @@
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: {{ .Values.bookinfo.virtualService.name }}
+  namespace: {{ .Values.bookinfo.virtualService.namespace }}
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - {{ .Values.bookinfo.gateway.namespace }}/{{ .Values.bookinfo.gateway.name }}
+  http:
+  - match:
+    - uri:
+        exact: /productpage
+    - uri:
+        prefix: /static
+    - uri:
+        exact: /login
+    - uri:
+        exact: /logout
+    - uri:
+        prefix: /api/v1/products
+    route:
+    - destination:
+        host: productpage
+        port:
+          number: 9080

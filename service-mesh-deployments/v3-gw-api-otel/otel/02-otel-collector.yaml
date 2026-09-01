@@ -1,0 +1,101 @@
+# SA para el colector
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: otel-collector
+  namespace: istio-system
+---
+# Rol con permisos de escritura
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: tempostack-traces-write
+rules:
+  - apiGroups:
+      - 'tempo.grafana.com'
+    # Lista de los tenants
+    resources:
+      - bookinfo
+    resourceNames:
+      - traces
+    verbs:
+      - 'create'
+---
+# Aplicamos el rol con permisos de escritura a la sa del colector
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: tempostack-traces
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: tempostack-traces-write
+subjects:
+  # El nombre de la sa del paso anterior
+  - kind: ServiceAccount
+    name: otel-collector
+    namespace: istio-system
+---
+# Definimos el colector
+kind: OpenTelemetryCollector
+apiVersion: opentelemetry.io/v1beta1
+metadata:
+  name: otel
+  namespace: istio-system
+spec:
+  serviceAccount: otel-collector
+#  automountServiceAccountToken: true
+  observability:
+    metrics: {}
+    deploymentUpdateStrategy: {}
+  config:
+    extensions:
+      # Extensión para obtener un token de la sa
+      bearertokenauth:
+        filename: /var/run/secrets/kubernetes.io/serviceaccount/token  
+    # A dónde envía los datos
+    exporters:
+      debug:
+        # Mostramos el contenido completo de los spans
+        verbosity: detailed
+      otlp/tempo:
+        endpoint: tempo-tempo-gateway.tracing-system.svc.cluster.local:8090
+        tls:
+          insecure: false
+          insecure_skip_verify: true
+        auth:
+          # La extensión que hemos indicado en spec.config.extensions
+          authenticator: bearertokenauth
+        headers:
+          X-Scope-OrgID: "bookinfo"
+    # Entrada de datos
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: '0.0.0.0:4317'
+#          http: {}
+    service:
+      extensions:
+        - bearertokenauth    
+      pipelines:
+        logs:
+          receivers: [otlp]
+          exporters: [debug, otlp/tempo]
+        metrics:
+          receivers: [otlp]
+          exporters: [debug, otlp/tempo]
+        traces:
+          receivers: [otlp]
+          exporters: [debug, otlp/tempo]
+      # Expone las métricas del colector
+      telemetry:
+      #  logs:
+      #    level: debug
+        metrics:
+          readers:
+          - pull:
+              exporter:
+                prometheus:
+                  host: 0.0.0.0
+                  port: 8888          

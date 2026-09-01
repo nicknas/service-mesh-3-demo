@@ -1,0 +1,77 @@
+#--------------------------------------------------------------------
+# Collects metrics from the Istio proxies
+#--------------------------------------------------------------------
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: istio-proxies-monitor
+# Uncomment this line and spec.namespaceSelector for having
+# only one pod monitor (not recommended)
+#  namespace: {{ .Values.istio.namespace }}
+  namespace: {{ .Values.bookapp.namespace }}
+
+spec:
+# Uncomment these 2 lines to have only one pod monitor for all 
+# namespaces (not recommended)
+#  namespaceSelector:
+#    any: true
+  selector:
+    matchExpressions:
+      - key: istio-prometheus-ignore
+        operator: DoesNotExist
+  podMetricsEndpoints:
+    - path: /stats/prometheus
+      interval: 30s
+      relabelings:
+        # Recopilamos sólo las métricas del sidecar
+        - action: keep
+          sourceLabels:
+            - __meta_kubernetes_pod_container_name
+          regex: istio-proxy
+        # Sólo recopila datos de los pods con la anotación 'prometheus.io/scrape: "true"'
+        - action: keep
+          sourceLabels:
+            - __meta_kubernetes_pod_annotationpresent_prometheus_io_scrape
+        # Compone ip/puerto del pod que debe usar prometheus para obtener las métricas - IPv6
+        - action: replace
+          regex: (\d+);(([A-Fa-f0-9]{1,4}::?){1,7}[A-Fa-f0-9]{1,4})
+          replacement: "[$2]:$1"
+          sourceLabels:
+            - __meta_kubernetes_pod_annotation_prometheus_io_port
+            - __meta_kubernetes_pod_ip
+          targetLabel: __address__
+        # Compone ip/puerto del pod que debe usar prometheus para obtener las métricas - IPv4
+        - action: replace
+          regex: (\d+);((([0-9]+?)(\.|$)){4})
+          replacement: $2:$1
+          sourceLabels:
+            - __meta_kubernetes_pod_annotation_prometheus_io_port
+            - __meta_kubernetes_pod_ip
+          targetLabel: __address__
+        # Normaliza la etiqueta 'app' (la pasa al formato corto)
+        - sourceLabels:
+            - __meta_kubernetes_pod_label_app_kubernetes_io_name
+            - __meta_kubernetes_pod_label_app
+          separator: ;
+          targetLabel: app
+          action: replace
+          regex: (.+);.*|.*;(.+)
+          replacement: ${1}${2}
+        # Normaliza la etiqueta 'version' (la pasa al formato corto)
+        - sourceLabels:
+            - __meta_kubernetes_pod_label_app_kubernetes_io_version
+            - __meta_kubernetes_pod_label_version
+          separator: ;
+          targetLabel: version
+          action: replace
+          regex: (.+);.*|.*;(.+)
+          replacement: ${1}${2}
+        # Copia el namespace del pod al campo 'namespace' de la métrica
+        - sourceLabels:
+            - __meta_kubernetes_namespace
+          action: replace
+          targetLabel: namespace
+        # Añade la etiqueta 'mesh_id' a todas las métricas
+        - action: replace
+          replacement: mesh_id
+          targetLabel: mesh_id

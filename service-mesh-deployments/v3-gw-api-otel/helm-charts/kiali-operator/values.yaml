@@ -1,0 +1,8 @@
+subscription:
+  channel: stable
+  installPlanApproval: Automatic
+  name: kiali-ossm
+  namespace: openshift-operators
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  startingCSV: kiali-operator.v2.22.1

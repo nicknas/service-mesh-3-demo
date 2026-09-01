@@ -1,0 +1,8 @@
+subscription:
+  channel: stable
+  installPlanApproval: Automatic
+  name: opentelemetry-product
+  namespace: openshift-operators
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  startingCSV: opentelemetry-operator.v0.144.0-1

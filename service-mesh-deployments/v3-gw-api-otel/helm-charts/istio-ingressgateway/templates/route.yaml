@@ -1,0 +1,34 @@
+# Route
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: istio-ingressgateway
+  namespace: {{ .Values.istioIngressGateway.namespace }}
+spec:
+  host: "{{ .Values.istioIngressGateway.hostname }}"
+  port:
+    targetPort: http
+  to:
+    kind: Service
+    # The service is created automatically by istio with the name:
+    #   <gateway_name>-<gateway_class>
+    name: {{ .Values.istioIngressGateway.name }}-istio
+    weight: 100
+  wildcardPolicy: None
+#---
+# Allow outside traffic to access the gateway
+# This is optional, only needed in case your cluster contains restrictive NetworkPolicies
+#apiVersion: networking.k8s.io/v1
+#kind: NetworkPolicy
+#metadata:
+#  name: gatewayingress
+#  namespace: {{ .Values.istioIngressGateway.namespace }}
+#spec:
+#  podSelector:
+#    matchLabels:
+#      istio: ingressgateway
+#  ingress:
+#    - {}
+#  policyTypes:
+#  - Ingress
+

@@ -1,0 +1,27 @@
+#----------------------------------------------------------------------------------
+# Deploys the bookinfo application
+#----------------------------------------------------------------------------------
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: bookinfo-application
+  namespace: openshift-gitops
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io/foreground
+spec:
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: bookinfo
+  project: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ApplyOutOfSyncOnly=true
+      - CreateNamespace=true
+  source:
+    repoURL: http://papandujo.tia.com:3000/rlnieto/istio.git
+    targetRevision: main
+    path: basic-deployment/v3-gw-api-otel/helm-charts/bookinfo-application
+       

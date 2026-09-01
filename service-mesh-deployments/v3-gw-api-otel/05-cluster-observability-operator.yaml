@@ -1,0 +1,27 @@
+#----------------------------------------------------------------------------------
+# Installs the open telemetry operator
+#----------------------------------------------------------------------------------
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cluster-observability-operator
+  namespace: openshift-gitops
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io/foreground
+spec:
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: openshift-opentelemetry-operator
+  project: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ApplyOutOfSyncOnly=true
+      - CreateNamespace=true
+  source:
+    repoURL: http://papandujo.tia.com:3000/rlnieto/istio.git
+    targetRevision: main
+    path: basic-deployment/v3-gw-api-otel/helm-charts/cluster-observability-operator
+       

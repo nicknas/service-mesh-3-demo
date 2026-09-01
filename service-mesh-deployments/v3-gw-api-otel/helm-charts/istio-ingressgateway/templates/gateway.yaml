@@ -1,0 +1,19 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ .Values.istioIngressGateway.name }}
+  namespace: {{ .Values.istioIngressGateway.namespace }}
+  annotations:
+    # If this line is omitted a service of kind LoadBalancer is created
+    #networking.istio.io/service-type: ClusterIP
+    networking.istio.io/service-type: NodePort
+spec:
+  # Required to be managed by sm3
+  gatewayClassName: istio
+  listeners:
+  - name: http
+    protocol: HTTP
+    port: 80
+    allowedRoutes:
+      namespaces:
+        from: All

@@ -1,0 +1,8 @@
+# Plugin para consultar las trazas de Tempo desde el menú 'observe/traces'
+# Es necesario instalar el cluster observability operator
+apiVersion: observability.openshift.io/v1alpha1
+kind: UIPlugin
+metadata:
+  name: distributed-tracing
+spec:
+  type: DistributedTracing
