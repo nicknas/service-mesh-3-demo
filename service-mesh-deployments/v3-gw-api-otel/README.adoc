@@ -61,10 +61,10 @@ image::images/service-mesh-gw-api.png.excalidraw.png[]
 Si hemos instalado y desinstalado service mesh 2 previamente y la instalación del operador de service mesh 3 se queda parada tenemos que borrar todos los crd de sailoperator previos
 
 ==== Despliegue del control plane
-Desplegamos el manifest *__04-control-plane.yaml__* de ArgoCD. Esto creará los objetos *Istio* (en el namespace istio-system) e *IstioCNI* (en el namespace istio-cni). Además se creará automáticamente el objeto *IstioRevision* (en el namespace istio-system)
+Desplegamos el manifest *__06-control-plane.yaml__* de ArgoCD. Esto creará los objetos *Istio* (en el namespace istio-system) e *IstioCNI* (en el namespace istio-cni). Además se creará automáticamente el objeto *IstioRevision* (en el namespace istio-system)
 
 === Desplegar la aplicación 'bookinfo'
-Desplegamos el manifest *__05-bookinginfo-application.yaml__* que:
+Desplegamos el manifest *__07-bookinginfo-application.yaml__* que:
 
 * Crea el namespace *bookinfo* y le añade las anotaciones necesarias para que forme parte del mesh
 +
@@ -90,7 +90,7 @@ istio.io/rev=<nombre_cr_istio>
 ====
 
 === Crear y configurar un gateway
-Creamos el ingress gateway usando el api *gateway.networking.k8s.io* aplicando el manifest *__06-istio-ingress-gateway.yaml__*:
+Creamos el ingress gateway usando el api *gateway.networking.k8s.io* aplicando el manifest *__08-istio-ingress-gateway.yaml__*:
 
 * Crea el namespace *istio-ingress*
 * Despliega un objeto de tipo gateway usando api de kuberntes gateway API. Se crea automáticamente un servicio para acceder al gateway desplegado
@@ -103,7 +103,7 @@ http://bookinfo.<cluster-hostname>
 [IMPORTANT]
 Debemos de usar *istio* como gatewayClassName para que istio sea capaz de gestionar el gateway que hemos creado
 
-Creamos el gateway para la aplicación *bookinfo* aplicando el manifest *__07-bookinfo-gateway.yaml__*
+Creamos el gateway para la aplicación *bookinfo* aplicando el manifest *__09-bookinfo-gateway.yaml__*
 
 * Crea el gateway específico para bookinfo en el namespace *istio-ingress*, junto con el ingress
 * Crea el HTTProute para configurar las rutas de acceso a la aplicación bookinfo en el namespace *bookinfo*
@@ -118,7 +118,7 @@ curl -sk http://bookinfo.<cluster-hostname>/api/v1/products | jq
 [TODO] Parece que los virtual service sólo son válidos para el tráfico dentro la mesh, no van a funcionar con un ingress gateway <- revisar esto, de momento no me han funcionado los vs
 
 == Observabilidad
-Aplicamos manifest de argo *__08-observability.yaml__*, que:
+Aplicamos manifest de argo *__10-observability.yaml__*, que:
 
 * Crea una instancia de Kiali
 * Crea un colector OpenTelemetry para recopilar trazas y métricas
@@ -134,6 +134,8 @@ Una vez desplegada la aplicación argo lanzamos el script *utils/generate-traffi
 image::images/trafico-kiali.png[]
 
 Templates helm usadas:
+
+
 
 
 
