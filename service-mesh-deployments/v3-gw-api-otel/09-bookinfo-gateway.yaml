@@ -23,5 +23,5 @@ spec:
   source:
     repoURL: https://github.com/rlnieto/istio.git
     targetRevision: main
-    path: basic-deployment/v3-gw-api-otel/helm-charts/bookinfo-gateway
+    path: service-mesh-deployments/v3-gw-api-otel/helm-charts/bookinfo-gateway
        
