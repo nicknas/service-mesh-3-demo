@@ -21,7 +21,7 @@ spec:
       - ApplyOutOfSyncOnly=true
       - CreateNamespace=true
   source:
-    repoURL: http://papandujo.tia.com:3000/rlnieto/istio.git
+    repoURL: https://github.com/rlnieto/istio.git
     targetRevision: main
     path: basic-deployment/v3-gw-api-otel/helm-charts/istio-ingressgateway
        
