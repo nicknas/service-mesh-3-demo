@@ -3,7 +3,7 @@
 # Genera tráfico en el mesh llamando a los endpoints:
 #   - /productpage
 #   - /api/v1/products
-HOSTNAME=bookinfo.rabadillo.tia.com
+HOSTNAME=bookinfo.apps.cluster-bbgmb.dyn.redhatworkshops.io
 
 echo -e "Usando hostname: $HOSTNAME\n"
 

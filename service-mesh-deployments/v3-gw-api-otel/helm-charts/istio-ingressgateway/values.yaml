@@ -1,4 +1,4 @@
 istioIngressGateway:
   name: istio-ingress
   namespace: istio-ingress
-  hostname: bookinfo.rabadillo.tia.com
+  hostname: bookinfo.apps.cluster-bbgmb.dyn.redhatworkshops.io
