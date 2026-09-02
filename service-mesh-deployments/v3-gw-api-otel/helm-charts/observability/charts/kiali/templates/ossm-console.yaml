@@ -1,0 +1,10 @@
+apiVersion: kiali.io/v1alpha1
+kind: OSSMConsole
+metadata:
+  name: ossmconsole
+  namespace: {{ .Values.istio.namespace }}
+spec:
+  kiali:
+    serviceName: {{ .Values.kiali.name }}
+    serviceNamespace: {{ .Values.istio.namespace }}
+  version: default
