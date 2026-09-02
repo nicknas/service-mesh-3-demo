@@ -31,9 +31,9 @@ fi
 for ((i=1; i<=ITERACIONES; i++)); do
   echo -n "Iteración $i... "
 #  curl -s http://$HOSTNAME/productpage > /dev/null
-  http_code_page=$(curl -sk -w "%{http_code}" -o /dev/null http://$HOSTNAME/productpage)
+  http_code_page=$(curl -sk -w "%{http_code}" -o /dev/null https://$HOSTNAME/productpage)
   sleep 0.5
-  http_code_json=$(curl -sk -w "%{http_code}" -o /dev/null http://$HOSTNAME/api/v1/products)
+  http_code_json=$(curl -sk -w "%{http_code}" -o /dev/null https://$HOSTNAME/api/v1/products)
   echo -e "(${http_code_page}/${http_code_json})"
 done
 
