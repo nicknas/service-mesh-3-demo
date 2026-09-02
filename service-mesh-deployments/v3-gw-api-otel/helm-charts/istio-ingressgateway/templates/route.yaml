@@ -8,6 +8,9 @@ spec:
   host: "{{ .Values.istioIngressGateway.hostname }}"
   port:
     targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
   to:
     kind: Service
     # The service is created automatically by istio with the name:
