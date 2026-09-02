@@ -1,2 +1,6 @@
-add:
-  cosas: true
+minio:
+  endpoint: "http://minio.tracing-system.svc.cluster.local:9000"
+  bucket: tempo
+  accessKeyId: tempo
+  accessKeySecret: tempo12345
+  insecure: "true"

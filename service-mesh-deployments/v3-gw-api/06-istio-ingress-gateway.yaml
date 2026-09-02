@@ -21,7 +21,7 @@ spec:
       - ApplyOutOfSyncOnly=true
       - CreateNamespace=true
   source:
-    repoURL: https://github.com/rlnieto/istio.git
+    repoURL: https://github.com/nicknas/service-mesh-3-demo.git
     targetRevision: main
     path: basic-deployment/v3-gw-api/helm-charts/istio-ingressgateway
        

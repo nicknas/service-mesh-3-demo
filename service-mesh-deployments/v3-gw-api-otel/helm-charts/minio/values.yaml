@@ -1,0 +1,32 @@
+namespace: tracing-system
+
+image:
+  repository: quay.io/minio/minio
+  tag: RELEASE.2025-04-22T22-12-26Z
+  pullPolicy: IfNotPresent
+
+mcImage:
+  repository: quay.io/minio/mc
+  tag: RELEASE.2025-04-16T18-13-26Z
+  pullPolicy: IfNotPresent
+
+auth:
+  rootUser: tempo
+  rootPassword: tempo12345
+
+bucket: tempo
+
+service:
+  port: 9000
+
+persistence:
+  enabled: true
+  size: 5Gi
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi

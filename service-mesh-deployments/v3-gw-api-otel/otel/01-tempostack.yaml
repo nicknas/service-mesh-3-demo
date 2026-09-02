@@ -12,10 +12,10 @@ metadata:
   namespace: tracing-system
 type: Opaque
 stringData:
-  endpoint: "https://<minio-server>"
+  endpoint: "http://minio.tracing-system.svc.cluster.local:9000"
   bucket: "tempo"
-  access_key_id: "********"
-  access_key_secret: "********"
+  access_key_id: "tempo"
+  access_key_secret: "tempo12345"
   insecure: "true"  # HTTP (sin TLS)
 ---
 # Plugin para consultar las trazas de Tempo desde el menú 'observe/traces'

@@ -21,7 +21,7 @@ spec:
       - ApplyOutOfSyncOnly=true
       - CreateNamespace=true
   source:
-    repoURL: https://github.com/rlnieto/istio.git
+    repoURL: https://github.com/nicknas/service-mesh-3-demo.git
     targetRevision: main
     path: service-mesh-deployments/v3/helm-charts/kiali-operator
        
