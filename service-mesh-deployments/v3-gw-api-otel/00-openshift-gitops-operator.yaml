@@ -1,0 +1,28 @@
+#----------------------------------------------------------------------------------
+# Manages the OpenShift GitOps operator subscription, Argo CD RBAC, and
+# application-controller cluster permissions. Apply once after the operator
+# creates the default Argo CD instance (bootstrap step).
+#----------------------------------------------------------------------------------
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: openshift-gitops-operator
+  namespace: openshift-gitops
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io/foreground
+spec:
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: openshift-gitops-operator
+  project: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ApplyOutOfSyncOnly=true
+      - CreateNamespace=true
+  source:
+    repoURL: https://github.com/nicknas/service-mesh-3-demo.git
+    targetRevision: main
+    path: service-mesh-deployments/v3-gw-api-otel/helm-charts/openshift-gitops-operator
