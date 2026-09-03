@@ -4,6 +4,8 @@ kind: TempoStack
 metadata:
   name: tempo
   namespace: tracing-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
 # Red Hat supports only the custom resource options that are 
 # available in the distributed tracing documentation
 spec:

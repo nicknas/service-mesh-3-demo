@@ -12,10 +12,15 @@ dependencies:
 
   - name: otel-collector
     version: 0.1.0
-    repository: file:/charts/otel-collector
+    repository: file://charts/otel-collector
     condition: otel-collector.enabled
+
+  - name: minio
+    version: 0.1.0
+    repository: file://../minio
+    condition: minio.enabled
 
   - name: tempo-stack
     version: 0.1.0
-    repository: file:/charts/tempo-stack
+    repository: file://charts/tempostack
     condition: tempo-stack.enabled

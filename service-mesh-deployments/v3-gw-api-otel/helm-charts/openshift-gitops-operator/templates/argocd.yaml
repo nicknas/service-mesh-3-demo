@@ -1,0 +1,15 @@
+{{- if .Values.argocd.rbac.enabled }}
+apiVersion: argoproj.io/v1beta1
+kind: ArgoCD
+metadata:
+  name: {{ .Values.argocd.name }}
+  namespace: {{ .Values.argocd.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  rbac:
+    defaultPolicy: {{ .Values.argocd.rbac.defaultPolicy | quote }}
+    policy: |
+{{ .Values.argocd.rbac.policy | indent 6 }}
+    scopes: {{ .Values.argocd.rbac.scopes | quote }}
+{{- end }}
