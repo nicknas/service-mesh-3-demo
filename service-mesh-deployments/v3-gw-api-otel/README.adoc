@@ -387,6 +387,8 @@ En modo multitenancy de Tempo (`spec.tenants.mode: openshift`), el gateway valid
 . Abre Kiali → *Workloads* → selecciona un workload de `bookinfo` (por ejemplo `productpage`).
 . Comprueba que aparece la pestaña *Traces* con el scatterplot de spans.
 
+image::images/trazas-kiali.png[Pestaña Traces en Kiali mostrando el scatterplot y el detalle de una traza de productpage]
+
 Si no aparece, verifica:
 
 [source,bash]
@@ -433,7 +435,9 @@ Tras generar tráfico, abre Kiali desde la consola de OpenShift (sección Servic
 * El grafo de tráfico de Bookinfo con el ingress `istio-ingress-istio` (Gateway API).
 * La pestaña *Traces* en el detalle de cada workload, con spans recopilados desde Tempo (ver <<kiali-traces>>).
 
-image::images/trafico-kiali.png[]
+image::images/trafico-kiali.png[Grafo de tráfico de Bookinfo en Kiali]
+
+image::images/trazas-kiali.png[Pestaña Traces en Kiali con detalle de spans de productpage]
 
 [NOTE]
 ====
