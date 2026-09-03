@@ -305,6 +305,101 @@ Chart: `helm-charts/observability`
 
 image::images/sm3-otel-tempo.excalidraw.png[]
 
+==== Integración de Kiali con Tempo (pestaña Traces)
+[[kiali-traces]]
+
+Por defecto, el CR de Kiali solo configura Prometheus para métricas. Sin `external_services.tracing`, Kiali no sabe dónde consultar trazas y la pestaña *Traces* no aparece en workloads ni aplicaciones, aunque el flujo de tracing (Istio → OTel Collector → Tempo) esté funcionando.
+
+La configuración se define en `helm-charts/observability/charts/kiali/templates/kiali.yaml` y sus valores en `helm-charts/observability/charts/kiali/values.yaml`.
+
+===== Bloque `external_services.tracing`
+
+[source,yaml]
+----
+tracing:
+  enabled: true
+  provider: tempo
+  use_grpc: false
+  internal_url: https://tempo-tempo-gateway.tracing-system.svc.cluster.local:8080/api/traces/v1/bookinfo/tempo
+  external_url: https://tempo-tempo-gateway-tracing-system.apps.<cluster-domain>/api/traces/v1/bookinfo/search
+  health_check_url: https://tempo-tempo-gateway.tracing-system.svc.cluster.local:8080/api/traces/v1/bookinfo/tempo/api/echo
+  auth:
+    ca_file: /var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt
+    type: bearer
+    use_kiali_token: true
+  tempo_config:
+    name: tempo
+    namespace: tracing-system
+    tenant: bookinfo
+    url_format: jaeger
+----
+
+[cols="1,3", options="header"]
+|===
+| Campo | Descripción
+
+| `enabled` | Activa la integración con el backend de tracing.
+| `provider: tempo` | Indica que el backend es Tempo (Red Hat OpenShift distributed tracing platform).
+| `internal_url` | URL interna que Kiali usa para *consultar* trazas. Es imprescindible para mostrar la pestaña *Traces* integrada en la UI.
+| `external_url` | URL del enlace *View in Tracing* hacia la consola Jaeger expuesta por el gateway de Tempo.
+| `health_check_url` | Endpoint `/api/echo` que Kiali usa para comprobar que Tempo responde.
+| `auth` | Autenticación HTTPS con el token del ServiceAccount de Kiali. Necesario en OpenShift con Tempo en modo multitenancy (`openshift`).
+| `tempo_config.tenant` | Debe coincidir con el `tenantName` definido en el TempoStack (`bookinfo` en este ejemplo).
+| `tempo_config.url_format: jaeger` | Formato de los enlaces externos hacia la UI Jaeger del gateway.
+|===
+
+[IMPORTANT]
+====
+`internal_url` habilita la pestaña *Traces* dentro de Kiali.
+`external_url` solo sirve para el enlace externo *View in Tracing*. Sin `internal_url`, Kiali redirige fuera pero no muestra trazas en su propia UI.
+====
+
+===== URLs generadas automáticamente
+
+El fichero `helm-charts/observability/charts/kiali/templates/_helpers.tpl` construye las URLs a partir del TempoStack desplegado:
+
+* **Gateway interno:** `tempo-tempo-gateway.tracing-system.svc.cluster.local:8080`
+* **Tenant:** `bookinfo` (definido en `tempostack.yaml`)
+* **Ruta externa:** `tempo-tempo-gateway-tracing-system.apps.<cluster-domain>`
+
+Si despliegas en otro cluster, actualiza `tracing.clusterDomain` en `helm-charts/observability/charts/kiali/values.yaml`:
+
+[source,yaml]
+----
+tracing:
+  clusterDomain: apps.<tu-cluster>.<dominio>
+----
+
+===== Permisos RBAC
+
+En modo multitenancy de Tempo (`spec.tenants.mode: openshift`), el gateway valida permisos por tenant. El ServiceAccount `kiali-service-account` se añade al `ClusterRoleBinding` `tempostack-traces-reader` (`helm-charts/observability/charts/tempostack/templates/cluster-role-binding.yaml`) para que Kiali pueda leer trazas del tenant `bookinfo`.
+
+===== Flujo de trazas
+
+. Istio genera spans (Telemetry CR con provider `otel`, sampling al 100 %).
+. El OpenTelemetry Collector los reenvía a Tempo vía OTLP.
+. Tempo los almacena en MinIO.
+. Kiali consulta Tempo mediante `internal_url` y muestra la pestaña *Traces* en workloads y aplicaciones.
+
+==== Verificación de la pestaña Traces
+
+. Genera tráfico con `./utils/generate-traffic.sh 30`.
+. Abre Kiali → *Workloads* → selecciona un workload de `bookinfo` (por ejemplo `productpage`).
+. Comprueba que aparece la pestaña *Traces* con el scatterplot de spans.
+
+Si no aparece, verifica:
+
+[source,bash]
+----
+# Kiali tiene tracing habilitado
+oc get kiali kiali -n istio-system \
+  -o jsonpath='{.spec.external_services.tracing.enabled}{" "}{.spec.external_services.tracing.internal_url}{"\n"}'
+
+# TempoStack y gateway en ejecución
+oc get tempostack tempo -n tracing-system
+oc get pods -n tracing-system -l app.kubernetes.io/component=gateway
+----
+
 == Generación de tráfico y verificación
 
 === Script de tráfico externo
@@ -333,7 +428,10 @@ En `utils/internal-traffic/` hay un Dockerfile y manifiestos para desplegar un g
 
 === Kiali
 
-Tras generar tráfico, abre Kiali desde la consola de OpenShift (sección Service Mesh) o la ruta del operador. Deberías ver el grafo de tráfico de Bookinfo con el ingress `istio-ingress-istio` (Gateway API).
+Tras generar tráfico, abre Kiali desde la consola de OpenShift (sección Service Mesh) o la ruta del operador. Deberías ver:
+
+* El grafo de tráfico de Bookinfo con el ingress `istio-ingress-istio` (Gateway API).
+* La pestaña *Traces* en el detalle de cada workload, con spans recopilados desde Tempo (ver <<kiali-traces>>).
 
 image::images/trafico-kiali.png[]
 
