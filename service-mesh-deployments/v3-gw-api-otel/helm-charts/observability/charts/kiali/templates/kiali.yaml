@@ -13,3 +13,22 @@ spec:
       thanos_proxy:
         enabled: true
       url: https://thanos-querier.openshift-monitoring.svc.cluster.local:9091
+    {{- if .Values.tracing.enabled }}
+    tracing:
+      enabled: true
+      provider: {{ .Values.tracing.provider }}
+      use_grpc: {{ .Values.tracing.use_grpc }}
+      internal_url: {{ include "kiali.tempo.internalUrl" . | quote }}
+      external_url: {{ include "kiali.tempo.externalUrl" . | quote }}
+      health_check_url: {{ include "kiali.tempo.healthCheckUrl" . | quote }}
+      auth:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt
+        insecure_skip_verify: false
+        type: bearer
+        use_kiali_token: true
+      tempo_config:
+        name: {{ .Values.tracing.tempoStack.name | quote }}
+        namespace: {{ .Values.tracing.tempoStack.namespace | quote }}
+        tenant: {{ .Values.tracing.tempoStack.tenant | quote }}
+        url_format: {{ .Values.tracing.tempo_config.url_format | quote }}
+    {{- end }}

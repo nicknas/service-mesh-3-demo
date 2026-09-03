@@ -6,3 +6,15 @@ kiali:
   name: kiali
 bookapp:
   namespace: bookinfo
+tracing:
+  enabled: true
+  provider: tempo
+  use_grpc: false
+  tempoStack:
+    name: tempo
+    namespace: tracing-system
+    tenant: bookinfo
+  # Host suffix for the Tempo gateway Route (e.g. apps.cluster.example.com)
+  clusterDomain: apps.cluster-bbgmb.dyn.redhatworkshops.io
+  tempo_config:
+    url_format: jaeger
