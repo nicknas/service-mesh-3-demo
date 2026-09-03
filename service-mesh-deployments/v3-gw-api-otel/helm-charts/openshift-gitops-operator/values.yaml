@@ -10,8 +10,6 @@ subscription:
 argocd:
   name: openshift-gitops
   namespace: openshift-gitops
-  applicationController:
-    clusterAdmin: true
   rbac:
     enabled: true
     defaultPolicy: role:readonly
@@ -20,20 +18,3 @@ argocd:
       g, system:cluster-admins, role:admin
       g, cluster-admins, role:admin
       g, system:authenticated, role:readonly
-  resourceCustomizations: |
-    /PersistentVolumeClaim:
-      health.lua: |
-        hs = {}
-        if obj.status ~= nil and obj.status.phase == "Bound" then
-          hs.status = "Healthy"
-          hs.message = "Bound"
-          return hs
-        end
-        if obj.status ~= nil and obj.status.phase == "Pending" then
-          hs.status = "Healthy"
-          hs.message = "Pending is acceptable for WaitForFirstConsumer"
-          return hs
-        end
-        hs.status = "Progressing"
-        hs.message = "Waiting for PVC"
-        return hs

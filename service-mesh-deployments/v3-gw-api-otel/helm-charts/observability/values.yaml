@@ -5,8 +5,5 @@ kiali:
 otel-collector:
   enabled: true
 
-minio:
-  enabled: true
-
 tempo-stack:
   enabled: true  

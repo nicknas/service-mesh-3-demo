@@ -5,11 +5,8 @@ dependencies:
 - name: otel-collector
   repository: file://charts/otel-collector
   version: 0.1.0
-- name: minio
-  repository: file://../minio
-  version: 0.1.0
 - name: tempo-stack
   repository: file://charts/tempostack
   version: 0.1.0
-digest: sha256:dbbf1b8e5ba5f450417fcb1733e30afe4e29abbfce3272f086440c05c48c68c7
-generated: "2026-09-03T10:37:20.214902+02:00"
+digest: sha256:fd1dbc5f76e078a95888f187fae3745c87417157bf27144c65fc8b74d45dee91
+generated: "2026-09-03T12:56:14.748458+02:00"

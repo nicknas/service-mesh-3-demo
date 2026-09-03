@@ -1,7 +1,6 @@
-# Namespace para los componentes de tracing distribuído
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: tracing-system
+  name: {{ .Values.namespace }}
   annotations:
     argocd.argoproj.io/sync-wave: "0"

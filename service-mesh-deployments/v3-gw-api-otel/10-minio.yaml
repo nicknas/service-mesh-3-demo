@@ -1,19 +1,17 @@
 #----------------------------------------------------------------------------------
-# Manages the OpenShift GitOps operator subscription, Argo CD RBAC, and
-# application-controller cluster permissions. Apply once after the operator
-# creates the default Argo CD instance (bootstrap step).
+# Deploys MinIO object storage for Tempo (sync before observability)
 #----------------------------------------------------------------------------------
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: openshift-gitops-operator
+  name: minio
   namespace: openshift-gitops
   finalizers:
     - resources-finalizer.argocd.argoproj.io/foreground
 spec:
   destination:
     server: 'https://kubernetes.default.svc'
-    namespace: openshift-gitops-operator
+    namespace: tracing-system
   project: default
   syncPolicy:
     automated:
@@ -25,4 +23,4 @@ spec:
   source:
     repoURL: https://github.com/nicknas/service-mesh-3-demo.git
     targetRevision: main
-    path: service-mesh-deployments/v3-gw-api-otel/helm-charts/openshift-gitops-operator
+    path: service-mesh-deployments/v3-gw-api-otel/helm-charts/minio

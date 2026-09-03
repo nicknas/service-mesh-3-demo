@@ -1,5 +1,5 @@
 #----------------------------------------------------------------------------------
-# Deploys the bookinfo gateway
+# Deploys Kiali, OTel collector, and Tempo (requires minio app)
 #----------------------------------------------------------------------------------
 apiVersion: argoproj.io/v1alpha1
 kind: Application
