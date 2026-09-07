@@ -316,7 +316,9 @@ El manifest `12-grafana.yaml` despliega:
 * Instancia de **Grafana** con persistencia (PVC)
 * Ruta OpenShift para acceso externo
 * Datasources provisionados: **Prometheus** (Thanos Querier) y **Tempo** (tenant `bookinfo`)
-* Dashboard predefinido *Bookinfo / Service Mesh* con las queries de la demo
+* Dashboards predefinidos en carpeta *Bookinfo*:
+** *Bookinfo — Escenario OK* (queries Q1–Q8 del cheat sheet)
+** *Bookinfo — Escenario Fallo* (queries Q9–Q13; ratings caído)
 
 Chart: `helm-charts/grafana`
 

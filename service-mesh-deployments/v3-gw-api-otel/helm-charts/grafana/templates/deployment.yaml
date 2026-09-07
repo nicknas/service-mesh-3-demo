@@ -96,5 +96,9 @@ spec:
           configMap:
             name: {{ include "grafana.fullname" . }}-dashboards-provider
         - name: dashboards
-          configMap:
-            name: {{ include "grafana.fullname" . }}-dashboard-bookinfo
+          projected:
+            sources:
+              - configMap:
+                  name: {{ include "grafana.fullname" . }}-dashboard-bookinfo-ok
+              - configMap:
+                  name: {{ include "grafana.fullname" . }}-dashboard-bookinfo-fallo

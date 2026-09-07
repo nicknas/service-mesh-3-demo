@@ -322,6 +322,8 @@ topk(20,
 | Métricas de productpage | **Workloads → productpage-v1 → Service Mesh** |
 | Trazas | Misma ruta → **Traces → Span Details** |
 | Bookinfo | `https://bookinfo.<cluster-hostname>/productpage` |
+| Grafana — Escenario OK | Carpeta **Bookinfo** → *Bookinfo — Escenario OK* |
+| Grafana — Escenario Fallo | Carpeta **Bookinfo** → *Bookinfo — Escenario Fallo* |
 
 ---
 

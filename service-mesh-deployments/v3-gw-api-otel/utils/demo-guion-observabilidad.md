@@ -74,12 +74,18 @@ Recorrer subpestañas:
 | **Inbound Metrics** | "Cuántas entran y si responden bien" |
 | **Outbound Metrics** | "A quién pide datos (reseñas, detalles)" |
 
-### 1.4 (Opcional) Métricas en Observe → Metrics (1 min)
+### 1.4 (Opcional) Grafana — dos dashboards (1 min)
 
-**Ruta:** Observe → Metrics → pegar **Q1** y **Q7** del [cheat sheet](demo-metrics-cheat-sheet.md)
+**Ruta:** Grafana → carpeta **Bookinfo**
 
-> "Esto es la misma información que Kiali, pero en datos brutos.
-> Kiali la convierte en mapas y gráficos."
+| Dashboard | Cuándo usarlo | Queries |
+|-----------|---------------|---------|
+| **Bookinfo — Escenario OK** | Tráfico normal | Q1–Q8 |
+| **Bookinfo — Escenario Fallo** | Tras `oc scale deployment ratings-v1 -n bookinfo --replicas=0` | Q9–Q13 |
+
+Los dashboards incluyen enlaces entre sí. Misma fuente que **Observe → Metrics** (Prometheus/Thanos).
+
+> "Mismas queries del cheat sheet, organizadas por escenario de demo."
 
 ---
 
@@ -143,7 +149,11 @@ Señalar:
 
 - Workloads → productpage-v1 → Service Mesh → **Outbound Metrics** (errores hacia reviews)
 
-**Opción B — Observe → Metrics:**
+**Opción B — Grafana:**
+
+- Carpeta **Bookinfo** → **Bookinfo — Escenario Fallo** (Q9–Q13)
+
+**Opción C — Observe → Metrics:**
 
 - **Q10** o **Q9** (reviews→ratings con errores)
 - **Q11** (productpage→reviews con errores)
@@ -199,7 +209,7 @@ oc scale deployment ratings-v1 -n bookinfo --replicas=1
 | Mapa completo Bookinfo | Service Mesh → Traffic Graph |
 | Métricas de productpage | Workloads → productpage-v1 → Service Mesh → Traffic / Inbound / Outbound |
 | Una visita paso a paso | Misma ruta → Traces → Span Details |
-| Métricas Prometheus raw | Observe → Metrics ([cheat sheet](demo-metrics-cheat-sheet.md)) |
+| Métricas Prometheus raw | Observe → Metrics o Grafana → Bookinfo ([cheat sheet](demo-metrics-cheat-sheet.md)) |
 | Comprobar scrape sidecars | Observe → Targets |
 
 ---
