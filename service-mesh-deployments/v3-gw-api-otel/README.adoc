@@ -12,9 +12,9 @@ Este directorio contiene los manifiestos de Argo CD y los charts Helm necesarios
 * **OpenShift Service Mesh 3** (modo sidecar) con https://kubernetes.io/docs/concepts/services-networking/gateway/[Kubernetes Gateway API]
 * Aplicación de ejemplo **Bookinfo**
 * **Ingress gateway** basado en Gateway API
-* Stack de **observabilidad**: Kiali, OpenTelemetry Collector, MinIO y Tempo
+* Stack de **observabilidad**: Kiali, OpenTelemetry Collector, MinIO, Tempo y Grafana
 
-El despliegue se realiza mediante **OpenShift GitOps** (Argo CD). Los manifiestos `01`–`11` definen las Applications de Argo CD que sincronizan los charts Helm desde Git.
+El despliegue se realiza mediante **OpenShift GitOps** (Argo CD). Los manifiestos `01`–`12` definen las Applications de Argo CD que sincronizan los charts Helm desde Git.
 
 [NOTE]
 ====
@@ -57,11 +57,14 @@ Los componentes se organizan en Applications de Argo CD independientes. El orden
 | 9 | `bookinfo-gateway` | `09-bookinfo-gateway.yaml`
 | 10 | `minio` | `10-minio.yaml`
 | 11 | `observability` | `11-observability.yaml`
+| 12 | `grafana` | `12-grafana.yaml`
 |===
 
 [NOTE]
 ====
 La Application `minio` debe sincronizarse **antes** que `observability`, ya que Tempo necesita el almacenamiento de objetos S3 que proporciona MinIO.
+
+La Application `grafana` debe sincronizarse **después** de `observability`, ya que los datasources de Prometheus y Tempo dependen del stack de monitorización y tracing.
 ====
 
 === Diferencias con la API clásica de Istio
@@ -135,7 +138,7 @@ Aplica los manifiestos en orden numérico:
 
 [source,bash]
 ----
-for f in 0{1..9}-*.yaml 10-minio.yaml 11-observability.yaml; do
+for f in 0{1..9}-*.yaml 10-minio.yaml 11-observability.yaml 12-grafana.yaml; do
   echo "Aplicando $f..."
   oc apply -f "$f"
 done
@@ -305,6 +308,27 @@ Chart: `helm-charts/observability`
 
 image::images/sm3-otel-tempo.excalidraw.png[]
 
+=== Grafana (Application 12)
+
+El manifest `12-grafana.yaml` despliega:
+
+* Namespace `grafana-system`
+* Instancia de **Grafana** con persistencia (PVC)
+* Ruta OpenShift para acceso externo
+* Datasources provisionados: **Prometheus** (Thanos Querier) y **Tempo** (tenant `bookinfo`)
+* Dashboard predefinido *Bookinfo / Service Mesh* con las queries de la demo
+
+Chart: `helm-charts/grafana`
+
+Credenciales por defecto (demo): usuario `admin`, contraseña `grafana` (configurable en `helm-charts/grafana/values.yaml`).
+
+Acceso:
+
+[source,bash]
+----
+oc get route grafana -n grafana-system -o jsonpath='https://{.spec.host}{"\n"}'
+----
+
 ==== Integración de Kiali con Tempo (pestaña Traces)
 [[kiali-traces]]
 
@@ -453,6 +477,7 @@ No añadas `ServiceMonitor` que hagan scrape de los puertos de aplicación de Bo
 | Bookinfo (productpage) | `https://bookinfo.<cluster-hostname>/productpage`
 | Argo CD (GitOps) | Consola OpenShift → Operadores → OpenShift GitOps, o ruta `openshift-gitops-server-openshift-gitops.apps.<cluster-hostname>`
 | Kiali | Consola OpenShift → Service Mesh → Kiali
+| Grafana | `oc get route grafana -n grafana-system`
 | Trazas (Tempo / Jaeger UI) | Ruta del gateway de Tempo en `tracing-system`
 |===
 
@@ -473,6 +498,7 @@ No añadas `ServiceMonitor` que hagan scrape de los puertos de aplicación de Bo
 | `bookinfo-gateway` | `helm-charts/bookinfo-gateway`
 | `minio` | `helm-charts/minio`
 | `observability` | `helm-charts/observability`
+| `grafana` | `helm-charts/grafana`
 | Bootstrap GitOps (manual) | `helm-charts/openshift-gitops-operator`
 |===
 
@@ -512,7 +538,7 @@ oc delete gitopsservice cluster --ignore-not-found
 oc delete argocd openshift-gitops -n openshift-gitops --ignore-not-found
 
 # 7. Eliminar namespaces de demo
-for ns in bookinfo istio-ingress istio-system istio-cni tracing-system \
+for ns in bookinfo istio-ingress istio-system istio-cni tracing-system grafana-system \
   openshift-gitops-operator openshift-tempo-operator \
   openshift-cluster-observability-operator openshift-gitops; do
   oc delete namespace "$ns" --ignore-not-found --wait=false

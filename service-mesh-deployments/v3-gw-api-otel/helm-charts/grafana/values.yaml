@@ -1,0 +1,46 @@
+namespace: grafana-system
+
+nameOverride: grafana
+
+image:
+  repository: grafana/grafana
+  tag: "11.5.2"
+  pullPolicy: IfNotPresent
+
+admin:
+  user: admin
+  # Demo only — override in production via external secret
+  password: grafana
+
+service:
+  port: 3000
+
+route:
+  enabled: true
+  # Leave empty to let OpenShift assign a hostname
+  host: ""
+
+persistence:
+  enabled: true
+  size: 1Gi
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+datasources:
+  prometheus:
+    enabled: true
+    url: https://thanos-querier.openshift-monitoring.svc.cluster.local:9091
+  tempo:
+    enabled: true
+    tempoStack:
+      name: tempo
+      namespace: tracing-system
+      tenant: bookinfo
+    # Host suffix for external Tempo links (optional)
+    clusterDomain: apps.cluster-bbgmb.dyn.redhatworkshops.io
