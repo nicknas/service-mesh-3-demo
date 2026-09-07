@@ -4,7 +4,7 @@ metadata:
   name: {{ include "grafana.fullname" . }}
   namespace: {{ .Values.namespace }}
   annotations:
-    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-wave: "1"
   labels:
     {{- include "grafana.labels" . | nindent 4 }}
 spec:
