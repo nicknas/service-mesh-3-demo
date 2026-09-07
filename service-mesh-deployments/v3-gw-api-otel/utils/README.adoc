@@ -1,5 +1,7 @@
 Ficheros:
 
+* *demo-guion-observabilidad.md:* guión de demo (métricas y trazabilidad en consola OpenShift, ~20 min).
+* *demo-metrics-cheat-sheet.md:* cheat sheet con queries PromQL para *Observe → Metrics* (correlacionadas con Kiali).
 * *generate-traffic.sh:* genera tráfico usando el ingress. Hay que configurar el nombre de host en el propio script:
 +
 [source, bash]
