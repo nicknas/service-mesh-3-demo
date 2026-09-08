@@ -40,38 +40,32 @@
         aggregations:
           - label: destination_workload
             displayName: Destino
+# Escenario fallo diseñado: ratings caído (oc scale ratings-v1 --replicas=0).
+# No usar borrado de pod reviews: el panel mide salida reviews→ratings.
+# Con 3 versiones de reviews, solo ~1/3 del tráfico llega a cada workload.
 - name: bookinfo-escenario-fallo-reviews
-  title: Bookinfo — Escenario Fallo (reviews→ratings)
+  title: Bookinfo — Escenario Fallo (ratings caído)
   discoverOn: istio_requests_total
   items:
     - chart:
-        name: "Q9/Q10 — reviews → ratings (códigos y flags)"
+        name: "Q9/Q10 — Salida → ratings"
         chartType: line
         unit: "requests per second"
         spans: 6
         metricName: istio_requests_total
         dataType: rate
-        aggregations:
-          - label: destination_service_name
-            displayName: Servicio destino
-            singleSelection: true
-          - label: response_code
-            displayName: HTTP code
-          - label: response_flags
-            displayName: Flags
+        groupLabels:
+          - response_code
+          - response_flags
     - chart:
-        name: "Q12 — Tasa de éxito reviews → ratings"
+        name: "Entrada desde productpage"
         chartType: line
         unit: "requests per second"
         spans: 6
         metricName: istio_requests_total
         dataType: rate
-        aggregations:
-          - label: destination_service_name
-            displayName: Servicio destino
-            singleSelection: true
-          - label: response_code
-            displayName: HTTP code
+        groupLabels:
+          - response_code
 # Kiali no admite filtros PromQL (p. ej. response_code=~"4..|5.."); Q11 solo en Grafana.
 - name: bookinfo-escenario-fallo-productpage
   title: Bookinfo — Escenario Fallo (productpage)
