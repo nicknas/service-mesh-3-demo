@@ -147,19 +147,21 @@ Señalar:
 
 **Opción A — Kiali:**
 
-- Workloads → productpage-v1 → Service Mesh → **Outbound Metrics** (errores hacia reviews)
+- Service Mesh → **Traffic Graph** → flecha **reviews → ratings** en rojo (503)
 
 **Opción B — Grafana:**
 
-- Carpeta **Bookinfo** → **Bookinfo — Escenario Fallo** (Q9–Q13)
+- Carpeta **Bookinfo** → **Bookinfo — Escenario Fallo**
+- **Q9/Q10:** errores `503 UH` en reviews→ratings (usa `destination_service_name=ratings`)
+- **Q12:** baja la tasa de éxito reviews→ratings (no la de productpage, que sigue en 200)
 
 **Opción C — Observe → Metrics:**
 
-- **Q10** o **Q9** (reviews→ratings con errores)
-- **Q11** (productpage→reviews con errores)
+- **Q9** o **Q10** (reviews→ratings con errores 503 UH)
+- **Q12** (tasa de éxito reviews→ratings baja)
 
-> "Las métricas confirman: las valoraciones no responden, y eso afecta
-> a las reseñas y, en cascada, a la experiencia del cliente."
+> "Las métricas confirman el fallo en reviews→ratings. La página productpage
+> puede seguir respondiendo 200 aunque las valoraciones no estén disponibles."
 
 ### 3.5 Trazas con error (1 min)
 

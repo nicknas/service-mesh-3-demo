@@ -191,14 +191,16 @@ Generar tráfico tras el fallo: F5 × 10 o `./utils/generate-traffic.sh 20`
 
 *↔ Kiali: flecha roja reviews → ratings en Traffic Graph*
 
+Cuando `ratings` no tiene pods, Istio marca `destination_workload="unknown"` y `response_flags="UH"` (no healthy upstream). Usa `destination_service_name="ratings"` en lugar de `destination_workload`.
+
 ```promql
 sum(rate(istio_requests_total{
   namespace="bookinfo",
   source_workload=~"reviews.*",
-  destination_workload=~"ratings.*",
+  destination_service_name="ratings",
   reporter="source",
   response_code=~"4..|5.."
-}[5m])) by (response_code)
+}[5m])) by (response_code, response_flags)
 ```
 
 ---
@@ -209,9 +211,9 @@ sum(rate(istio_requests_total{
 sum(rate(istio_requests_total{
   namespace="bookinfo",
   source_workload=~"reviews.*",
-  destination_workload=~"ratings.*",
+  destination_service_name="ratings",
   reporter="source"
-}[5m])) by (response_code)
+}[5m])) by (response_code, response_flags)
 ```
 
 ---
@@ -219,6 +221,8 @@ sum(rate(istio_requests_total{
 ### Q11 — Errores productpage → reviews
 
 *↔ Kiali: Outbound Metrics de productpage*
+
+> Con solo `ratings` caído, **suele estar vacío**: `reviews` sigue respondiendo 200 a `productpage`. Útil si apagas los deployments de `reviews`.
 
 ```promql
 sum(rate(istio_requests_total{
@@ -232,23 +236,24 @@ sum(rate(istio_requests_total{
 
 ---
 
-### Q12 — Tasa de éxito entrante a productpage (baja con fallo)
+### Q12 — Tasa de éxito reviews → ratings (baja con fallo)
 
-*↔ Kiali: nodo productpage deja de estar 100% verde*
+*↔ Indicador del eslabón roto (mejor que productpage inbound, que sigue en 200)*
 
 ```promql
-100 *
 sum(rate(istio_requests_total{
   namespace="bookinfo",
-  destination_workload=~"productpage.*",
-  reporter="destination",
+  source_workload=~"reviews.*",
+  destination_service_name="ratings",
+  reporter="source",
   response_code!~"4..|5.."
 }[5m]))
 /
 sum(rate(istio_requests_total{
   namespace="bookinfo",
-  destination_workload=~"productpage.*",
-  reporter="destination"
+  source_workload=~"reviews.*",
+  destination_service_name="ratings",
+  reporter="source"
 }[5m]))
 ```
 
@@ -293,7 +298,7 @@ topk(20,
 | Q1, Q2, Q3, Q4, Q12, Q13 | Workloads → `productpage-v1` → Service Mesh → **Inbound Metrics** / **Traffic** |
 | Q5, Q6, Q7, Q11 | Misma ruta → **Outbound Metrics** / **Traffic** |
 | Q8 | Service Mesh → **Traffic Graph** (origen ingress) |
-| Q9, Q10 | Service Mesh → **Traffic Graph** (flecha reviews → ratings) |
+| Q9, Q10, Q12 | Service Mesh → **Traffic Graph** (flecha reviews → ratings, 503 UH) |
 
 ---
 
@@ -308,7 +313,7 @@ topk(20,
 | 5 | Q10 | Fallo — reviews→ratings por código |
 | 6 | Q9 | Fallo — errores reviews→ratings |
 | 7 | Q11 | Fallo — productpage→reviews |
-| 8 | Q12 | Fallo — % éxito baja |
+| 8 | Q12 | Fallo — % éxito reviews→ratings baja |
 | 9 | *(encender ratings)* | Recuperación |
 | 10 | Q2 | Recuperación — vuelve a ~100% |
 
