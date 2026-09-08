@@ -60,7 +60,7 @@ data:
           "id": 2,
           "targets": [
             {
-              "expr": "sum(rate(istio_requests_total{namespace=\"bookinfo\", destination_workload=~\"productpage.*\", reporter=\"destination\", response_code=~\"2..\"}[5m])) / sum(rate(istio_requests_total{namespace=\"bookinfo\", destination_workload=~\"productpage.*\", reporter=\"destination\"}[5m]))",
+              "expr": "sum(rate(istio_requests_total{namespace=\"bookinfo\", destination_workload=~\"productpage.*\", reporter=\"destination\", response_code!~\"4..|5..\"}[5m])) / sum(rate(istio_requests_total{namespace=\"bookinfo\", destination_workload=~\"productpage.*\", reporter=\"destination\"}[5m]))",
               "legendFormat": "success rate",
               "refId": "A"
             }
@@ -76,7 +76,7 @@ data:
           "id": 3,
           "targets": [
             {
-              "expr": "sum(rate(istio_requests_total{namespace=\"bookinfo\", destination_workload=~\"productpage.*\", reporter=\"destination\", response_code!~\"2..\"}[5m])) by (response_code)",
+              "expr": "sum(rate(istio_requests_total{namespace=\"bookinfo\", destination_workload=~\"productpage.*\", reporter=\"destination\", response_code=~\"4..|5..\"}[5m])) by (response_code)",
               "legendFormat": "{{ "{{" }}response_code{{ "}}" }}",
               "refId": "A"
             }

@@ -71,7 +71,7 @@ Recorrer subpestañas:
 | Subpestaña | Qué decir |
 |------------|-----------|
 | **Traffic** | "Visitas a esta página y hacia quién llama" |
-| **Inbound Metrics** | "Cuántas entran y si responden bien" |
+| **Inbound Metrics** | "Cuántas entran y si responden bien" (2xx y 3xx cuentan como éxito; 304 es caché al recargar) |
 | **Outbound Metrics** | "A quién pide datos (reseñas, detalles)" |
 
 ### 1.4 (Opcional) Grafana — dos dashboards (1 min)

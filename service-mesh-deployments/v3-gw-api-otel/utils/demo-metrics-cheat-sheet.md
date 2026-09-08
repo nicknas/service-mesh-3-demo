@@ -57,7 +57,7 @@ sum(rate(istio_requests_total{
   namespace="bookinfo",
   destination_workload=~"productpage.*",
   reporter="destination",
-  response_code=~"2.."
+  response_code!~"4..|5.."
 }[5m]))
 /
 sum(rate(istio_requests_total{
@@ -66,6 +66,8 @@ sum(rate(istio_requests_total{
   reporter="destination"
 }[5m]))
 ```
+
+> Incluye **2xx y 3xx** (p. ej. 304 Not Modified al recargar `/productpage`). Solo excluye 4xx/5xx, alineado con Kiali.
 
 ---
 
@@ -78,7 +80,7 @@ sum(rate(istio_requests_total{
   namespace="bookinfo",
   destination_workload=~"productpage.*",
   reporter="destination",
-  response_code!~"2.."
+  response_code=~"4..|5.."
 }[5m])) by (response_code)
 ```
 
@@ -195,7 +197,7 @@ sum(rate(istio_requests_total{
   source_workload=~"reviews.*",
   destination_workload=~"ratings.*",
   reporter="source",
-  response_code!~"2.."
+  response_code=~"4..|5.."
 }[5m])) by (response_code)
 ```
 
@@ -224,7 +226,7 @@ sum(rate(istio_requests_total{
   source_workload=~"productpage.*",
   destination_workload=~"reviews.*",
   reporter="source",
-  response_code!~"2.."
+  response_code=~"4..|5.."
 }[5m])) by (response_code)
 ```
 
@@ -240,7 +242,7 @@ sum(rate(istio_requests_total{
   namespace="bookinfo",
   destination_workload=~"productpage.*",
   reporter="destination",
-  response_code=~"2.."
+  response_code!~"4..|5.."
 }[5m]))
 /
 sum(rate(istio_requests_total{
