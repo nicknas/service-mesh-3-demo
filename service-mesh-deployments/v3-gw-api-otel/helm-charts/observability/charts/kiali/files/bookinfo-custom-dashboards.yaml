@@ -41,24 +41,24 @@
           - label: destination_workload
             displayName: Destino
 # Escenario fallo diseñado: ratings caído (oc scale ratings-v1 --replicas=0).
-# No usar borrado de pod reviews: el panel mide salida reviews→ratings.
-# Con 3 versiones de reviews, solo ~1/3 del tráfico llega a cada workload.
+# No borrar el pod (se recrea rápido). Errores = flag UH en salida hacia ratings.
+# Con v1/v2/v3 activos, solo ~1/3 del tráfico llega a cada workload.
 - name: bookinfo-escenario-fallo-reviews
   title: Bookinfo — Escenario Fallo (ratings caído)
+  rows: 1
   discoverOn: istio_requests_total
   items:
     - chart:
-        name: "Q9/Q10 — Salida → ratings"
+        name: "Q9 — Flags (buscar UH)"
         chartType: line
         unit: "requests per second"
         spans: 6
         metricName: istio_requests_total
         dataType: rate
         groupLabels:
-          - response_code
           - response_flags
     - chart:
-        name: "Entrada desde productpage"
+        name: "Q10 — Códigos HTTP"
         chartType: line
         unit: "requests per second"
         spans: 6
