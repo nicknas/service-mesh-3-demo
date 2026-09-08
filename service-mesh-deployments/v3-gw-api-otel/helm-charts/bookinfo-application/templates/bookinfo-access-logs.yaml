@@ -1,0 +1,12 @@
+# Envoy access logs en stdout para workloads Bookinfo (istio-proxy).
+# Necesario para ver tráfico de productpage y reviews en Loki: esas apps
+# (Gunicorn / Open Liberty) no escriben una línea por petición en el contenedor de aplicación.
+apiVersion: telemetry.istio.io/v1
+kind: Telemetry
+metadata:
+  name: access-logs
+  namespace: {{ .Values.app.namespace }}
+spec:
+  accessLogging:
+    - providers:
+        - name: envoy

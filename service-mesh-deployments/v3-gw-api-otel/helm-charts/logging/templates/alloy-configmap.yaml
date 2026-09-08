@@ -72,7 +72,7 @@ data:
     loki.process "bookinfo" {
       stage.drop {
         source     = "container"
-        expression = "istio-proxy|istio-validation"
+        expression = "istio-validation"
       }
       forward_to = [loki.write.default.receiver]
     }

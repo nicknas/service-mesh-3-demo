@@ -20,6 +20,8 @@ spec:
       proxy:
         holdApplicationUntilProxyStarts: true
     meshConfig:
+      # Access logs de Envoy a stdout (productpage/reviews no registran cada petición en la app).
+      accessLogFile: /dev/stdout
       enableTracing: true
       extensionProviders:
         # Nombre del proveedor de la extensión. Este es el nombre que 

@@ -324,6 +324,24 @@ spec:
       - name: productpage
         image: quay.io/sail-dev/examples-bookinfo-productpage-v1:1.20.2
         imagePullPolicy: IfNotPresent
+        # Gunicorn no registra peticiones HTTP por defecto; enviamos access log a stdout para Loki.
+        command: ["gunicorn"]
+        args:
+          - "-b"
+          - "[::]:9080"
+          - "productpage:app"
+          - "-w"
+          - "8"
+          - "--keep-alive"
+          - "2"
+          - "-k"
+          - "gevent"
+          - "--access-logfile"
+          - "-"
+          - "--error-logfile"
+          - "-"
+          - "--log-level"
+          - "info"
         ports:
         - containerPort: 9080
         volumeMounts:

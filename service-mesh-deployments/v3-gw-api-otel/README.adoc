@@ -348,9 +348,16 @@ Grafana (datasource Loki + dashboard Bookinfo — Logs)
 
 ==== Qué se recoge (y qué no)
 
-* **Sí:** stdout/stderr de los contenedores de aplicación de `productpage`, `reviews`, `details` y `ratings` en el namespace `bookinfo`.
-* **No:** logs del sidecar `istio-proxy` ni del contenedor `istio-validation` (filtrados en Alloy).
-* **No:** logs de Envoy access log ni del operador de logging de plataforma OpenShift.
+* **Sí:** stdout/stderr de los contenedores de aplicación (`productpage`, `reviews`, `details`, `ratings`) y access logs de Envoy en `istio-proxy` (namespace `bookinfo`).
+* **No:** contenedor `istio-validation` (filtrado en Alloy).
+* **No:** operador de logging de plataforma OpenShift (ClusterLogForwarder / LokiStack).
+
+[NOTE]
+====
+* `details` y `ratings` registran cada petición HTTP en la app (siempre visibles con tráfico).
+* `productpage` (Gunicorn) solo registra peticiones si se habilita `--access-logfile -` en el deployment.
+* `reviews` (Open Liberty) no escribe una línea por petición en el contenedor de aplicación; el tráfico se ve en los access logs de `istio-proxy` del pod.
+====
 
 ==== Etiquetas en Loki
 
@@ -375,9 +382,11 @@ En Grafana Explore, agrupa por `service_name` o filtra con LogQL:
 {namespace="bookinfo", app="reviews", version="v2"}
 ----
 
-==== Cambio en Bookinfo (reviews)
+==== Cambios en Bookinfo y mesh (visibilidad de logs)
 
-Los deployments de `reviews` escribían logs en archivos bajo `/tmp/logs` (`LOG_DIR`), invisibles para cualquier colector de stdout. Se eliminó esa variable de entorno para que las reseñas también escriban a **stdout**, igual que el resto de servicios.
+* **productpage:** el chart sobrescribe el comando de Gunicorn con `--access-logfile -` para enviar el access log a stdout.
+* **reviews:** Open Liberty no registra cada petición en stdout; se habilitan access logs de Envoy (`Telemetry` `access-logs` + `meshConfig.accessLogFile: /dev/stdout`) y Alloy recoge el contenedor `istio-proxy`.
+* **LOG_DIR:** no se usa en reviews (los logs de Liberty iban a ficheros bajo `/tmp/logs`, invisibles para el colector de Kubernetes).
 
 ==== Configuración de Alloy
 
@@ -386,7 +395,7 @@ El fichero `helm-charts/logging/templates/alloy-configmap.yaml` define:
 . *discovery.kubernetes*: pods en `bookinfo` con `app in (productpage, reviews, details, ratings)`.
 . *discovery.relabel*: mapea `namespace`, `app`, `version`, `pod`, `container` y `service_name`.
 . *loki.source.kubernetes*: transmite los logs al pipeline.
-. *loki.process*: descarta contenedores `istio-proxy` e `istio-validation`.
+. *loki.process*: descarta solo el contenedor `istio-validation`.
 . *loki.write*: envía a `http://logging.logging-system.svc.cluster.local:3100/loki/api/v1/push`.
 
 ==== Verificación
@@ -660,6 +669,6 @@ oc delete namespace openshift-gitops --ignore-not-found
 * **Pods de Bookinfo sin sidecar (`1/1`):** reinicia los deployments tras sincronizar el control plane.
 * **MinIO bloqueado en sync:** la Application `minio` debe aplicarse antes que `observability`. El PVC y el Deployment comparten sync-wave `1` para evitar bloqueos con almacenamiento `WaitForFirstConsumer`.
 * **Grafana sin dashboard de logs o sin datasource Loki:** sincroniza la Application `logging` antes que `grafana`. Evita `ApplyOutOfSyncOnly=true` en la Application de Grafana (el Deployment debe montar el ConfigMap `grafana-dashboard-bookinfo-logs`).
-* **En Explore aparece `loki.source.kubernetes.bookinfo`:** logs antiguos ingestados antes del mapeo `service_name ← app`. Usa rango temporal reciente o filtra `{app="productpage"}`.
+* **Grafana sin logs de productpage/reviews:** genera tráfico (`curl -L …/productpage`); sincroniza apps `bookinfo-application`, `sm3-control-plane`, `logging` y `grafana`. En el dashboard usa **Container → All** o filtra `container="istio-proxy"` para reviews.
 * **Operadores `Degraded` en Argo CD:** revisa el CSV en OLM; si está `Succeeded`, puedes ignorar el estado en Argo CD.
 * **Tráfico HTTP en lugar de HTTPS:** el ingress usa terminación TLS en el edge; el script `generate-traffic.sh` usa `https://`.

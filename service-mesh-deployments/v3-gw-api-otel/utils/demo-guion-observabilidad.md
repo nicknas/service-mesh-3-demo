@@ -7,8 +7,8 @@
 
 Consulta también:
 
-* [demo-metrics-cheat-sheet.md](demo-metrics-cheat-sheet.md) — queries PromQL de **Observe → Metrics**
-* [README.adoc](../README.adoc) — arquitectura del stack de logging (Loki + Alloy)
+- [demo-metrics-cheat-sheet.md](demo-metrics-cheat-sheet.md) — queries PromQL de **Observe → Metrics**
+- [README.adoc](../README.adoc) — arquitectura del stack de logging (Loki + Alloy)
 
 ---
 
@@ -29,6 +29,8 @@ Cliente → Página del producto → Detalles del libro
 
 ---
 
+
+
 ## Pre-flight (antes de la audiencia)
 
 - [ ] Bookinfo accesible: `https://bookinfo.<cluster>/productpage`
@@ -43,7 +45,11 @@ Cliente → Página del producto → Detalles del libro
 
 ---
 
+
+
 ## ACTO 1 — "Todo funciona" (~6 min)
+
+
 
 ### 1.1 Mostrar la aplicación (1 min)
 
@@ -53,6 +59,8 @@ Cliente → Página del producto → Detalles del libro
 
 > "Hay varias versiones del servicio de reseñas funcionando a la vez;
 > el sistema reparte las visitas entre ellas."
+
+
 
 ### 1.2 Mapa de tráfico global (2 min)
 
@@ -67,36 +75,46 @@ Señalar:
 > "Cada caja es un equipo. Cada flecha es tráfico real. El grosor indica
 > volumen; el color, si va bien o mal."
 
+
+
 ### 1.3 Métricas de la página del producto (2 min)
 
 **Ruta:** Workloads → `bookinfo` → `productpage-v1` → pestaña **Service Mesh**
 
 Recorrer subpestañas:
 
-| Subpestaña | Qué decir |
-|------------|-----------|
-| **Traffic** | "Visitas a esta página y hacia quién llama" |
-| **Inbound Metrics** | "Cuántas entran y si responden bien" (2xx y 3xx cuentan como éxito; 304 es caché al recargar) |
-| **Outbound Metrics** | "A quién pide datos (reseñas, detalles)" |
+
+| Subpestaña           | Qué decir                                                                                     |
+| -------------------- | --------------------------------------------------------------------------------------------- |
+| **Traffic**          | "Visitas a esta página y hacia quién llama"                                                   |
+| **Inbound Metrics**  | "Cuántas entran y si responden bien" (2xx y 3xx cuentan como éxito; 304 es caché al recargar) |
+| **Outbound Metrics** | "A quién pide datos (reseñas, detalles)"                                                      |
+
+
+
 
 ### 1.4 Grafana — métricas y logs (2 min)
 
 **Ruta:** Grafana → carpeta **Bookinfo**
 
-| Dashboard / vista | Cuándo usarlo | Qué muestra |
-|-------------------|---------------|-------------|
-| **Bookinfo — Escenario OK** | Tráfico normal | Queries Q1–Q8 (métricas) |
-| **Bookinfo — Escenario Fallo** | Tras apagar ratings | Queries Q9–Q13 (métricas) |
-| **Bookinfo — Logs** | Siempre que haya tráfico reciente | Logs de productpage, reviews, details, ratings |
+
+| Dashboard / vista              | Cuándo usarlo                     | Qué muestra                                    |
+| ------------------------------ | --------------------------------- | ---------------------------------------------- |
+| **Bookinfo — Escenario OK**    | Tráfico normal                    | Queries Q1–Q8 (métricas)                       |
+| **Bookinfo — Escenario Fallo** | Tras apagar ratings               | Queries Q9–Q13 (métricas)                      |
+| **Bookinfo — Logs**            | Siempre que haya tráfico reciente | Logs de productpage, reviews, details, ratings |
+
 
 En **Bookinfo — Logs**:
 
 1. Variable **Service**: `productpage`, `reviews`, `details` o `ratings`
-2. Variable **Version**: `v1`, `v2`, `v3` (reviews) o *All*
-3. Campo **Search**: texto libre (p. ej. `GET`, `error`, `503`)
+2. Variable **Container**: *All* (app + `istio-proxy`), *app only* o solo *istio-proxy*
+3. Variable **Version**: `v1`, `v2`, `v3` (reviews) o *All*
+4. Campo **Search**: texto libre (p. ej. `GET`, `error`, `503`)
 
 > "Además de métricas y trazas, centralizamos los logs de cada equipo
-> en un solo sitio. No hace falta entrar pod a pod con `oc logs`."
+> en un solo sitio. `details` y `ratings` registran cada petición en la app;
+> `productpage` y `reviews` se ven con access log (Gunicorn / Envoy)."
 
 **Alternativa rápida:** Grafana → **Explore** → **Logs** → datasource **Loki**:
 
@@ -110,7 +128,11 @@ antiguos: acota el rango temporal a *Last 5 minutes*.
 
 ---
 
+
+
 ## ACTO 2 — "Seguir una visita concreta" (~4 min)
+
+
 
 ### 2.1 Generar tráfico fresco
 
@@ -150,7 +172,11 @@ Recorrer de arriba abajo:
 
 ---
 
+
+
 ## ACTO 3 — "Algo se rompe" (~6 min)
+
+
 
 ### 3.1 Provocar el fallo (notas presentador)
 
@@ -160,12 +186,16 @@ oc scale deployment ratings-v1 -n bookinfo --replicas=0
 
 > "Vamos a simular que el servicio de valoraciones (estrellas) deja de funcionar."
 
+
+
 ### 3.2 Efecto en el navegador (1 min)
 
 Recargar `/productpage` varias veces:
 
 - La ficha puede cargar parcialmente
 - Reseñas/estrellas fallan o tardan
+
+
 
 ### 3.3 Mapa con errores (2 min)
 
@@ -178,6 +208,8 @@ Señalar:
 
 > "El mapa detecta el problema antes de que alguien abra un ticket.
 > El fallo no está en la puerta de entrada, está en esta dependencia."
+
+
 
 ### 3.4 Métricas del fallo (2 min)
 
@@ -199,6 +231,8 @@ Señalar:
 > "Las métricas confirman el fallo en reviews→ratings. La página productpage
 > puede seguir respondiendo 200 aunque las valoraciones no estén disponibles."
 
+
+
 ### 3.5 Trazas con error (1 min)
 
 **Ruta:** productpage-v1 → Service Mesh → Traces → punto con error (si aparece rojo) → **Span Details**
@@ -206,6 +240,8 @@ Señalar:
 Señalar el span en rojo (ratings o reviews→ratings)
 
 > "Esta visita concreta falló exactamente aquí."
+
+
 
 ### 3.6 Logs del fallo (1 min)
 
@@ -218,6 +254,8 @@ Señalar el span en rojo (ratings o reviews→ratings)
 > el proceso cuando intentó llamar al servicio caído."
 
 ---
+
+
 
 ## ACTO 4 — "Recuperación" (~2 min)
 
@@ -232,6 +270,8 @@ oc scale deployment ratings-v1 -n bookinfo --replicas=1
 > "Arreglamos el servicio y la consola lo confirma al momento."
 
 ---
+
+
 
 ## ACTO 5 — Cierre (~2 min)
 
@@ -252,33 +292,44 @@ oc scale deployment ratings-v1 -n bookinfo --replicas=1
 
 ---
 
+
+
 ## Referencia rápida de navegación
 
-| Quiero mostrar… | Ruta en consola |
-|-----------------|-----------------|
-| Mapa completo Bookinfo | Service Mesh → Traffic Graph |
-| Métricas de productpage | Workloads → productpage-v1 → Service Mesh → Traffic / Inbound / Outbound |
-| Una visita paso a paso | Misma ruta → Traces → Span Details |
-| Métricas Prometheus raw | Observe → Metrics o Grafana → Bookinfo ([cheat sheet](demo-metrics-cheat-sheet.md)) |
-| Logs de un servicio | Grafana → Bookinfo — Logs o Explore → Loki (`{namespace="bookinfo", app="…"}`) |
-| Comprobar scrape sidecars | Observe → Targets |
-| Comprobar colector de logs | `oc get pods -n logging-system` |
+
+| Quiero mostrar…            | Ruta en consola                                                                     |
+| -------------------------- | ----------------------------------------------------------------------------------- |
+| Mapa completo Bookinfo     | Service Mesh → Traffic Graph                                                        |
+| Métricas de productpage    | Workloads → productpage-v1 → Service Mesh → Traffic / Inbound / Outbound            |
+| Una visita paso a paso     | Misma ruta → Traces → Span Details                                                  |
+| Métricas Prometheus raw    | Observe → Metrics o Grafana → Bookinfo ([cheat sheet](demo-metrics-cheat-sheet.md)) |
+| Logs de un servicio        | Grafana → Bookinfo — Logs o Explore → Loki (`{namespace="bookinfo", app="…"}`)      |
+| Comprobar scrape sidecars  | Observe → Targets                                                                   |
+| Comprobar colector de logs | `oc get pods -n logging-system`                                                     |
+
 
 ---
+
+
 
 ## Si algo falla en directo
 
-| Problema | Solución |
-|----------|----------|
-| Grafo/trazas vacíos | Más F5; ampliar a Last 15m |
-| No aparece Traces | Verificar tráfico reciente; refrescar consola |
-| Queries sin datos | Observe → Targets; comprobar PodMonitor UP |
-| ratings no afecta mucho | Alternativa: apagar reviews-v1,v2,v3 (más dramático) |
-| Logs vacíos en Grafana | Generar tráfico; rango *Last 15m*; `oc get pods -n logging-system` |
-| Aparece `loki.source.kubernetes.bookinfo` | Logs viejos; filtrar por `app` o acotar a últimos 5 min |
-| No sale dashboard Bookinfo — Logs | Sincronizar Argo apps `logging` y `grafana`; reiniciar deployment Grafana |
+
+| Problema                                  | Solución                                                                  |
+| ----------------------------------------- | ------------------------------------------------------------------------- |
+| Grafo/trazas vacíos                       | Más F5; ampliar a Last 15m                                                |
+| No aparece Traces                         | Verificar tráfico reciente; refrescar consola                             |
+| Queries sin datos                         | Observe → Targets; comprobar PodMonitor UP                                |
+| ratings no afecta mucho                   | Alternativa: apagar reviews-v1,v2,v3 (más dramático)                      |
+| Logs vacíos en Grafana                    | Generar tráfico; rango *Last 15m*; `oc get pods -n logging-system`        |
+| Solo aparecen details/ratings             | Normal sin el fix: esas apps loguean cada request. Tras sync: productpage (Gunicorn) y reviews (`istio-proxy`) |
+| Aparece `loki.source.kubernetes.bookinfo` | Logs viejos; filtrar por `app` o acotar a últimos 5 min                   |
+| No sale dashboard Bookinfo — Logs         | Sincronizar Argo apps `logging` y `grafana`; reiniciar deployment Grafana |
+
 
 ---
+
+
 
 ## Comandos del presentador (no mostrar en pantalla)
 
@@ -302,7 +353,11 @@ oc exec -n logging-system deploy/logging-loki -- \
 
 ---
 
+
+
 ## Anexo — Qué se desplegó para logging (referencia presentador)
+
+
 
 ### Problema inicial
 
@@ -310,14 +365,18 @@ El stack solo tenía **métricas** (Prometheus/Kiali) y **trazas** (OTel → Tem
 
 ### Solución implementada
 
-| Pieza | Fichero / chart | Función |
-|-------|-----------------|---------|
-| **Loki** | `helm-charts/logging` | Almacén de logs (PVC 5 GiB, retención 7 días) |
-| **Grafana Alloy** | mismo chart | Lee stdout de pods `bookinfo` vía API Kubernetes |
-| **Argo CD app** | `13-logging.yaml` | Despliega namespace `logging-system` |
-| **Grafana Loki DS** | `helm-charts/grafana` | Consulta logs desde dashboards y Explore |
-| **Dashboard logs** | `configmap-dashboard-bookinfo-logs.yaml` | Panel con filtros por servicio y versión |
-| **Bookinfo fix** | `bookinfo-application.yaml` | Eliminado `LOG_DIR` en reviews → stdout |
+
+| Pieza               | Fichero / chart                          | Función                                          |
+| ------------------- | ---------------------------------------- | ------------------------------------------------ |
+| **Loki**            | `helm-charts/logging`                    | Almacén de logs (PVC 5 GiB, retención 7 días)    |
+| **Grafana Alloy**   | mismo chart                              | Lee stdout de pods `bookinfo` vía API Kubernetes |
+| **Argo CD app**     | `13-logging.yaml`                        | Despliega namespace `logging-system`             |
+| **Grafana Loki DS** | `helm-charts/grafana`                    | Consulta logs desde dashboards y Explore         |
+| **Dashboard logs**  | `configmap-dashboard-bookinfo-logs.yaml` | Panel con filtros por servicio y versión         |
+| **Bookinfo fix**    | `bookinfo-application.yaml`              | Gunicorn access log en productpage; Telemetry access logs para Envoy |
+
+
+
 
 ### Flujo de datos
 
@@ -328,15 +387,18 @@ productpage / reviews / details / ratings (stdout)
     → Grafana (Explore o dashboard Bookinfo — Logs)
 ```
 
+
+
 ### Orden de despliegue Argo
 
 `11 observability` → `13 logging` → `12 grafana` (Grafana necesita la URL de Loki).
 
 ### Qué NO recoge (decisión de demo)
 
-* Logs del sidecar Envoy (`istio-proxy`)
-* OpenShift ClusterLogForwarder / operador de logging de plataforma
-* Archivos en disco dentro del contenedor (solo stdout)
+- OpenShift ClusterLogForwarder / operador de logging de plataforma
+- Archivos en disco dentro del contenedor (p. ej. `/tmp/logs` de Liberty)
+
+
 
 ### Correlación trazas ↔ logs
 
