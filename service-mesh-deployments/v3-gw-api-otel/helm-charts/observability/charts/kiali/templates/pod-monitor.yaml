@@ -1,5 +1,9 @@
 #--------------------------------------------------------------------
-# Collects metrics from the Istio proxies
+# Collects metrics from Istio sidecars (/stats/prometheus).
+# Application metrics are merged by istio-agent when pods declare
+# prometheus.io/scrape|port|path (see bookinfo-application productpage-v1).
+# Do not add a second endpoint scraping :9080 directly — it creates
+# ghost traffic (unknown → service) in Kiali.
 #--------------------------------------------------------------------
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor

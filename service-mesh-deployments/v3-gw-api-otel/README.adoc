@@ -237,7 +237,7 @@ labels:
   istio-injection: enabled
 ----
 * Despliega la aplicación https://istio.io/latest/docs/examples/bookinfo/[bookinfo]
-* Configura un `PodMonitor` para métricas de los sidecars `istio-proxy`
+* Configura un `PodMonitor` para métricas de los sidecars `istio-proxy` (incluye métricas de aplicación fusionadas por Istio cuando el pod declara anotaciones `prometheus.io/*`; ver `productpage-v1` en el chart bookinfo-application)
 
 [WARNING]
 ====
@@ -467,7 +467,9 @@ image::images/trazas-kiali.png[Pestaña Traces en Kiali con detalle de spans de 
 
 [NOTE]
 ====
-No añadas `ServiceMonitor` que hagan scrape de los puertos de aplicación de Bookinfo (`:9080/metrics`); generan tráfico fantasma `unknown → service` en Kiali. Los sidecars se monitorizan mediante el `PodMonitor` en el chart de observabilidad.
+No hagas scrape directo de los puertos de aplicación de Bookinfo (`:9080/metrics`) mediante un `ServiceMonitor` o un segundo endpoint en el `PodMonitor`: genera tráfico fantasma `unknown → service` en Kiali.
+
+Para métricas de aplicación usa *metrics merging* de Istio: declara `prometheus.io/scrape`, `prometheus.io/port` y `prometheus.io/path` en el pod (como en `productpage-v1`); el `istio-agent` scrapea la app dentro del pod y expone todo en `/stats/prometheus` del sidecar. Prometheus solo necesita el `PodMonitor` del chart de observabilidad, que scrapea `istio-proxy`.
 ====
 
 == Accesos útiles
