@@ -1,11 +1,14 @@
-# Guión de demo — Métricas y trazabilidad en OpenShift
+# Guión de demo — Métricas, trazas y logs en OpenShift
 
 **Entorno:** v3-gw-api-otel  
 **Aplicación:** Bookinfo  
-**Duración:** ~20 min  
+**Duración:** ~25 min  
 **Público:** no técnico
 
-Consulta también: [demo-metrics-cheat-sheet.md](demo-metrics-cheat-sheet.md) para las queries PromQL de **Observe → Metrics**.
+Consulta también:
+
+* [demo-metrics-cheat-sheet.md](demo-metrics-cheat-sheet.md) — queries PromQL de **Observe → Metrics**
+* [README.adoc](../README.adoc) — arquitectura del stack de logging (Loki + Alloy)
 
 ---
 
@@ -31,6 +34,8 @@ Cliente → Página del producto → Detalles del libro
 - [ ] Bookinfo accesible: `https://bookinfo.<cluster>/productpage`
 - [ ] Menú **Service Mesh** visible en consola
 - [ ] Generar tráfico previo: `./utils/generate-traffic.sh 20` o 15× F5
+- [ ] Grafana accesible con datasources **Prometheus**, **Tempo** y **Loki**
+- [ ] Pods de logging en ejecución: `oc get pods -n logging-system` → `logging-loki` y `logging-alloy` Running
 - [ ] Tener a mano (segunda pantalla / notas):
   - Comando fallo: `oc scale deployment ratings-v1 -n bookinfo --replicas=0`
   - Comando recuperación: `oc scale deployment ratings-v1 -n bookinfo --replicas=1`
@@ -74,18 +79,34 @@ Recorrer subpestañas:
 | **Inbound Metrics** | "Cuántas entran y si responden bien" (2xx y 3xx cuentan como éxito; 304 es caché al recargar) |
 | **Outbound Metrics** | "A quién pide datos (reseñas, detalles)" |
 
-### 1.4 (Opcional) Grafana — dos dashboards (1 min)
+### 1.4 Grafana — métricas y logs (2 min)
 
 **Ruta:** Grafana → carpeta **Bookinfo**
 
-| Dashboard | Cuándo usarlo | Queries |
-|-----------|---------------|---------|
-| **Bookinfo — Escenario OK** | Tráfico normal | Q1–Q8 |
-| **Bookinfo — Escenario Fallo** | Tras `oc scale deployment ratings-v1 -n bookinfo --replicas=0` | Q9–Q13 |
+| Dashboard / vista | Cuándo usarlo | Qué muestra |
+|-------------------|---------------|-------------|
+| **Bookinfo — Escenario OK** | Tráfico normal | Queries Q1–Q8 (métricas) |
+| **Bookinfo — Escenario Fallo** | Tras apagar ratings | Queries Q9–Q13 (métricas) |
+| **Bookinfo — Logs** | Siempre que haya tráfico reciente | Logs de productpage, reviews, details, ratings |
 
-Los dashboards incluyen enlaces entre sí. Misma fuente que **Observe → Metrics** (Prometheus/Thanos).
+En **Bookinfo — Logs**:
 
-> "Mismas queries del cheat sheet, organizadas por escenario de demo."
+1. Variable **Service**: `productpage`, `reviews`, `details` o `ratings`
+2. Variable **Version**: `v1`, `v2`, `v3` (reviews) o *All*
+3. Campo **Search**: texto libre (p. ej. `GET`, `error`, `503`)
+
+> "Además de métricas y trazas, centralizamos los logs de cada equipo
+> en un solo sitio. No hace falta entrar pod a pod con `oc logs`."
+
+**Alternativa rápida:** Grafana → **Explore** → **Logs** → datasource **Loki**:
+
+```logql
+{namespace="bookinfo", app="productpage"}
+```
+
+Los nombres legibles en Explore son `productpage`, `reviews`, `details`, `ratings`
+(etiqueta `service_name`). Si ves `loki.source.kubernetes.bookinfo`, son logs
+antiguos: acota el rango temporal a *Last 5 minutes*.
 
 ---
 
@@ -108,9 +129,24 @@ Recorrer de arriba abajo:
 
 > "Esta visita concreta entró por aquí, pasó por la página del producto,
 > pidió detalles y reseñas, y las reseñas consultaron las valoraciones.
-> Sin esto habría que revisar logs de cada equipo por separado."
+> Las trazas muestran el recorrido; los logs (Grafana → Bookinfo — Logs)
+> muestran qué escribió cada equipo en ese momento."
 
 **No usar:** clic en "5 Apps involved" (no es interactivo).
+
+### 2.3 Logs de la misma visita (1 min)
+
+**Ruta:** Grafana → **Bookinfo — Logs** (o Explore → Logs → Loki)
+
+1. Filtrar **Service** = `productpage`
+2. Rango temporal: *Last 5 minutes*
+3. Señalar líneas de gunicorn / peticiones HTTP
+
+> "Cada microservicio escribe en su propio log. Si algo falla, podemos
+> correlacionar: primero la traza (dónde), luego el log (qué dijo el proceso)."
+
+**Opcional:** desde Tempo, abrir una traza y usar el enlace a logs relacionados
+(configurado en el datasource Tempo → Loki).
 
 ---
 
@@ -171,6 +207,16 @@ Señalar el span en rojo (ratings o reviews→ratings)
 
 > "Esta visita concreta falló exactamente aquí."
 
+### 3.6 Logs del fallo (1 min)
+
+**Ruta:** Grafana → **Bookinfo — Logs**
+
+1. **Service** = `reviews` → buscar mensajes de error al llamar a ratings
+2. **Service** = `productpage` → suele seguir en INFO (la página responde aunque ratings esté caído)
+
+> "Las métricas dicen *cuántos* errores hay; los logs dicen *qué* vio
+> el proceso cuando intentó llamar al servicio caído."
+
 ---
 
 ## ACTO 4 — "Recuperación" (~2 min)
@@ -193,14 +239,16 @@ oc scale deployment ratings-v1 -n bookinfo --replicas=1
 
 1. **Métricas** = "cuántas visitas, cuántas fallan, cuánto tardan" (mapas y gráficos)
 2. **Trazas** = "qué pasó en esta visita concreta" (Span Details)
-3. Todo visible **dentro de OpenShift**, sin tocar código de la aplicación
-4. Detectar fallos en **dependencias ocultas** (valoraciones) antes que el usuario
+3. **Logs** = "qué escribió cada equipo en ese momento" (Grafana → Bookinfo — Logs)
+4. Todo visible **dentro de OpenShift**, sin tocar código de la aplicación
+5. Detectar fallos en **dependencias ocultas** (valoraciones) antes que el usuario
 
 **Frase de cierre:**
 
 > "Con Service Mesh y observabilidad integrada en OpenShift, vemos el
-> comportamiento real de la aplicación: tráfico sano, errores en cadena
-> y el recorrido exacto de cada visita, todo desde la misma consola."
+> comportamiento real de la aplicación: tráfico sano, errores en cadena,
+> el recorrido exacto de cada visita y los logs de cada equipo, todo desde
+> la misma consola y Grafana."
 
 ---
 
@@ -212,7 +260,9 @@ oc scale deployment ratings-v1 -n bookinfo --replicas=1
 | Métricas de productpage | Workloads → productpage-v1 → Service Mesh → Traffic / Inbound / Outbound |
 | Una visita paso a paso | Misma ruta → Traces → Span Details |
 | Métricas Prometheus raw | Observe → Metrics o Grafana → Bookinfo ([cheat sheet](demo-metrics-cheat-sheet.md)) |
+| Logs de un servicio | Grafana → Bookinfo — Logs o Explore → Loki (`{namespace="bookinfo", app="…"}`) |
 | Comprobar scrape sidecars | Observe → Targets |
+| Comprobar colector de logs | `oc get pods -n logging-system` |
 
 ---
 
@@ -224,6 +274,9 @@ oc scale deployment ratings-v1 -n bookinfo --replicas=1
 | No aparece Traces | Verificar tráfico reciente; refrescar consola |
 | Queries sin datos | Observe → Targets; comprobar PodMonitor UP |
 | ratings no afecta mucho | Alternativa: apagar reviews-v1,v2,v3 (más dramático) |
+| Logs vacíos en Grafana | Generar tráfico; rango *Last 15m*; `oc get pods -n logging-system` |
+| Aparece `loki.source.kubernetes.bookinfo` | Logs viejos; filtrar por `app` o acotar a últimos 5 min |
+| No sale dashboard Bookinfo — Logs | Sincronizar Argo apps `logging` y `grafana`; reiniciar deployment Grafana |
 
 ---
 
@@ -242,4 +295,49 @@ oc scale deployment ratings-v1 -n bookinfo --replicas=1
 # Verificación rápida
 oc get pods -n bookinfo
 oc get podmonitor istio-proxies-monitor -n bookinfo
+oc get pods -n logging-system
+oc exec -n logging-system deploy/logging-loki -- \
+  wget -qO- 'http://localhost:3100/loki/api/v1/label/app/values'
 ```
+
+---
+
+## Anexo — Qué se desplegó para logging (referencia presentador)
+
+### Problema inicial
+
+El stack solo tenía **métricas** (Prometheus/Kiali) y **trazas** (OTel → Tempo). Los logs de Bookinfo no se centralizaban: había que usar `oc logs` pod a pod. Además, `reviews` escribía en archivos (`/tmp/logs`) que ningún colector leía.
+
+### Solución implementada
+
+| Pieza | Fichero / chart | Función |
+|-------|-----------------|---------|
+| **Loki** | `helm-charts/logging` | Almacén de logs (PVC 5 GiB, retención 7 días) |
+| **Grafana Alloy** | mismo chart | Lee stdout de pods `bookinfo` vía API Kubernetes |
+| **Argo CD app** | `13-logging.yaml` | Despliega namespace `logging-system` |
+| **Grafana Loki DS** | `helm-charts/grafana` | Consulta logs desde dashboards y Explore |
+| **Dashboard logs** | `configmap-dashboard-bookinfo-logs.yaml` | Panel con filtros por servicio y versión |
+| **Bookinfo fix** | `bookinfo-application.yaml` | Eliminado `LOG_DIR` en reviews → stdout |
+
+### Flujo de datos
+
+```
+productpage / reviews / details / ratings (stdout)
+    → Alloy (filtra istio-proxy, etiqueta app/version)
+    → Loki
+    → Grafana (Explore o dashboard Bookinfo — Logs)
+```
+
+### Orden de despliegue Argo
+
+`11 observability` → `13 logging` → `12 grafana` (Grafana necesita la URL de Loki).
+
+### Qué NO recoge (decisión de demo)
+
+* Logs del sidecar Envoy (`istio-proxy`)
+* OpenShift ClusterLogForwarder / operador de logging de plataforma
+* Archivos en disco dentro del contenedor (solo stdout)
+
+### Correlación trazas ↔ logs
+
+El datasource **Tempo** en Grafana tiene `tracesToLogs` apuntando a **Loki** (namespace `bookinfo`), para saltar de una traza a logs del mismo intervalo.

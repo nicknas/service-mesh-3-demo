@@ -14,7 +14,7 @@ Este directorio contiene los manifiestos de Argo CD y los charts Helm necesarios
 * **Ingress gateway** basado en Gateway API
 * Stack de **observabilidad**: Kiali, OpenTelemetry Collector, MinIO, Tempo, Loki, Grafana Alloy y Grafana
 
-El despliegue se realiza mediante **OpenShift GitOps** (Argo CD). Los manifiestos `01`–`12` definen las Applications de Argo CD que sincronizan los charts Helm desde Git.
+El despliegue se realiza mediante **OpenShift GitOps** (Argo CD). Los manifiestos `01`–`13` definen las Applications de Argo CD que sincronizan los charts Helm desde Git.
 
 [NOTE]
 ====
@@ -141,10 +141,18 @@ Aplica los manifiestos en orden numérico:
 
 [source,bash]
 ----
-for f in 0{1..9}-*.yaml 10-minio.yaml 11-observability.yaml 12-grafana.yaml; do
+for f in 0{1..9}-*.yaml 10-minio.yaml 11-observability.yaml 13-logging.yaml 12-grafana.yaml; do
   echo "Aplicando $f..."
   oc apply -f "$f"
 done
+----
+
+Comprueba el estado de las 13 Applications:
+
+[source,bash]
+----
+oc get applications -n openshift-gitops \
+  -o custom-columns='NAME:.metadata.name,SYNC:.status.sync.status,HEALTH:.status.health.status'
 ----
 
 === Paso 4: Permisos del application-controller
@@ -165,23 +173,16 @@ Este paso es necesario en cada instalación limpia. Sin él, las Applications qu
 
 === Paso 5: Esperar la sincronización
 
-Comprueba el estado de las 11 Applications:
+Todas las Applications deben quedar en `Synced` / `Healthy`. Las Applications de operadores pueden mostrar brevemente `Degraded` en Argo CD aunque el CSV de OLM esté en `Succeeded`; es un falso positivo habitual.
 
-[source,bash]
-----
-oc get applications -n openshift-gitops \
-  -o custom-columns='NAME:.metadata.name,SYNC:.status.sync.status,HEALTH:.status.health.status'
-----
-
-Todas deben quedar en `Synced` / `Healthy`. Las Applications de operadores pueden mostrar brevemente `Degraded` en Argo CD aunque el CSV de OLM esté en `Succeeded`; es un falso positivo habitual.
-
-Comprueba también el control plane y MinIO:
+Comprueba también el control plane, MinIO y logging:
 
 [source,bash]
 ----
 oc get istio default -n istio-system
 oc get pods -n tracing-system
 oc get tempostack tempo -n tracing-system
+oc get pods -n logging-system
 ----
 
 === Paso 6: Reiniciar Bookinfo para inyectar sidecars
@@ -311,6 +312,93 @@ Chart: `helm-charts/observability`
 
 image::images/sm3-otel-tempo.excalidraw.png[]
 
+=== Logging (Application 13)
+
+El manifest `13-logging.yaml` despliega recolección y almacenamiento de **logs de aplicación** de Bookinfo. No usa el operador de logging de OpenShift (ClusterLogForwarder / LokiStack); es un stack autónomo integrado con Grafana.
+
+Chart: `helm-charts/logging`
+
+==== Arquitectura
+
+[source]
+----
+Pods Bookinfo (stdout/stderr)
+        │
+        ▼
+Grafana Alloy  ──(API Kubernetes: pods/log)──►  filtra namespace bookinfo
+        │                                        etiquetas: app, version, pod
+        ▼
+Loki (logging-system)  ──►  PVC 5 GiB, retención 7 días
+        │
+        ▼
+Grafana (datasource Loki + dashboard Bookinfo — Logs)
+----
+
+==== Componentes desplegados
+
+[cols="1,2", options="header"]
+|===
+| Recurso | Descripción
+
+| Namespace `logging-system` | Aislamiento del stack de logs
+| **Loki** (`logging-loki`) | Almacén de logs (modo monolito, filesystem)
+| **Grafana Alloy** (`logging-alloy`) | Colector que lee logs de pods vía API de Kubernetes (sin DaemonSet privilegiado)
+| Service `logging` | Endpoint interno `:3100` para consultas y push
+|===
+
+==== Qué se recoge (y qué no)
+
+* **Sí:** stdout/stderr de los contenedores de aplicación de `productpage`, `reviews`, `details` y `ratings` en el namespace `bookinfo`.
+* **No:** logs del sidecar `istio-proxy` ni del contenedor `istio-validation` (filtrados en Alloy).
+* **No:** logs de Envoy access log ni del operador de logging de plataforma OpenShift.
+
+==== Etiquetas en Loki
+
+Alloy añade etiquetas a partir de los metadatos del pod:
+
+[cols="1,2", options="header"]
+|===
+| Etiqueta | Origen
+
+| `namespace` | Namespace del pod (`bookinfo`)
+| `app` | Etiqueta Kubernetes `app` (`productpage`, `reviews`, …)
+| `version` | Etiqueta `version` del pod (`v1`, `v2`, `v3`)
+| `service_name` | Copia de `app` (nombre legible en Grafana Explore)
+| `pod` / `container` | Identificador del pod y contenedor
+|===
+
+En Grafana Explore, agrupa por `service_name` o filtra con LogQL:
+
+[source,logql]
+----
+{namespace="bookinfo", app="productpage"}
+{namespace="bookinfo", app="reviews", version="v2"}
+----
+
+==== Cambio en Bookinfo (reviews)
+
+Los deployments de `reviews` escribían logs en archivos bajo `/tmp/logs` (`LOG_DIR`), invisibles para cualquier colector de stdout. Se eliminó esa variable de entorno para que las reseñas también escriban a **stdout**, igual que el resto de servicios.
+
+==== Configuración de Alloy
+
+El fichero `helm-charts/logging/templates/alloy-configmap.yaml` define:
+
+. *discovery.kubernetes*: pods en `bookinfo` con `app in (productpage, reviews, details, ratings)`.
+. *discovery.relabel*: mapea `namespace`, `app`, `version`, `pod`, `container` y `service_name`.
+. *loki.source.kubernetes*: transmite los logs al pipeline.
+. *loki.process*: descarta contenedores `istio-proxy` e `istio-validation`.
+. *loki.write*: envía a `http://logging.logging-system.svc.cluster.local:3100/loki/api/v1/push`.
+
+==== Verificación
+
+[source,bash]
+----
+oc get pods -n logging-system
+oc exec -n logging-system deploy/logging-loki -- \
+  wget -qO- 'http://localhost:3100/loki/api/v1/label/app/values'
+# Debe listar: productpage, reviews, details, ratings
+----
+
 === Grafana (Application 12)
 
 El manifest `12-grafana.yaml` despliega:
@@ -318,10 +406,13 @@ El manifest `12-grafana.yaml` despliega:
 * Namespace `grafana-system`
 * Instancia de **Grafana** con persistencia (PVC)
 * Ruta OpenShift para acceso externo
-* Datasources provisionados: **Prometheus** (Thanos Querier) y **Tempo** (tenant `bookinfo`)
+* Datasources provisionados: **Prometheus** (Thanos Querier), **Tempo** (tenant `bookinfo`) y **Loki** (`logging-system`)
 * Dashboards predefinidos en carpeta *Bookinfo*:
 ** *Bookinfo — Escenario OK* (queries Q1–Q8 del cheat sheet)
 ** *Bookinfo — Escenario Fallo* (queries Q9–Q13; ratings caído)
+** *Bookinfo — Logs* (panel de logs con filtros por servicio y versión)
+
+La integración Tempo → Loki (`tracesToLogs`) permite saltar desde una traza a logs del mismo periodo en el namespace `bookinfo`.
 
 Chart: `helm-charts/grafana`
 
@@ -485,6 +576,7 @@ Para métricas de aplicación usa *metrics merging* de Istio: declara `prometheu
 | Argo CD (GitOps) | Consola OpenShift → Operadores → OpenShift GitOps, o ruta `openshift-gitops-server-openshift-gitops.apps.<cluster-hostname>`
 | Kiali | Consola OpenShift → Service Mesh → Kiali
 | Grafana | `oc get route grafana -n grafana-system`
+| Logs (Loki API) | `http://logging.logging-system.svc.cluster.local:3100` (interno)
 | Trazas (Tempo / Jaeger UI) | Ruta del gateway de Tempo en `tracing-system`
 |===
 
@@ -505,6 +597,7 @@ Para métricas de aplicación usa *metrics merging* de Istio: declara `prometheu
 | `bookinfo-gateway` | `helm-charts/bookinfo-gateway`
 | `minio` | `helm-charts/minio`
 | `observability` | `helm-charts/observability`
+| `logging` | `helm-charts/logging`
 | `grafana` | `helm-charts/grafana`
 | Bootstrap GitOps (manual) | `helm-charts/openshift-gitops-operator`
 |===
@@ -545,7 +638,7 @@ oc delete gitopsservice cluster --ignore-not-found
 oc delete argocd openshift-gitops -n openshift-gitops --ignore-not-found
 
 # 7. Eliminar namespaces de demo
-for ns in bookinfo istio-ingress istio-system istio-cni tracing-system grafana-system \
+for ns in bookinfo istio-ingress istio-system istio-cni tracing-system logging-system grafana-system \
   openshift-gitops-operator openshift-tempo-operator \
   openshift-cluster-observability-operator openshift-gitops; do
   oc delete namespace "$ns" --ignore-not-found --wait=false
@@ -566,5 +659,7 @@ oc delete namespace openshift-gitops --ignore-not-found
 * **Applications en `OutOfSync` con `forbidden`:** falta el `ClusterRoleBinding` del paso 4.
 * **Pods de Bookinfo sin sidecar (`1/1`):** reinicia los deployments tras sincronizar el control plane.
 * **MinIO bloqueado en sync:** la Application `minio` debe aplicarse antes que `observability`. El PVC y el Deployment comparten sync-wave `1` para evitar bloqueos con almacenamiento `WaitForFirstConsumer`.
+* **Grafana sin dashboard de logs o sin datasource Loki:** sincroniza la Application `logging` antes que `grafana`. Evita `ApplyOutOfSyncOnly=true` en la Application de Grafana (el Deployment debe montar el ConfigMap `grafana-dashboard-bookinfo-logs`).
+* **En Explore aparece `loki.source.kubernetes.bookinfo`:** logs antiguos ingestados antes del mapeo `service_name ← app`. Usa rango temporal reciente o filtra `{app="productpage"}`.
 * **Operadores `Degraded` en Argo CD:** revisa el CSV en OLM; si está `Succeeded`, puedes ignorar el estado en Argo CD.
 * **Tráfico HTTP en lugar de HTTPS:** el ingress usa terminación TLS en el edge; el script `generate-traffic.sh` usa `https://`.
