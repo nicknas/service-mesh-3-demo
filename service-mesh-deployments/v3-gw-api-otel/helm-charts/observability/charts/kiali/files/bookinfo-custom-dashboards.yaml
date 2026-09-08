@@ -77,17 +77,17 @@
   discoverOn: istio_requests_total
   items:
     - chart:
-        name: "Q11 — Errores productpage → reviews"
+        name: "Q11 — productpage → reviews (códigos HTTP)"
         chartType: line
         unit: "requests per second"
         spans: 6
         metricName: istio_requests_total
         dataType: rate
+        groupLabels:
+          - response_code
         aggregations:
           - label: destination_workload
             displayName: Destino
-          - label: response_code
-            displayName: HTTP code
     - chart:
         name: "Q13 — Latencia p95 productpage"
         chartType: line
