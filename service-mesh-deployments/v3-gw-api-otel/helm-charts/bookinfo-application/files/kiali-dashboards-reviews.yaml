@@ -1,0 +1,55 @@
+- name: bookinfo-escenario-fallo-reviews
+  title: Bookinfo — Escenario Fallo (reviews→ratings)
+  discoverOn: istio_requests_total
+  items:
+    - chart:
+        name: "Q9 — Errores reviews → ratings"
+        unit: "requests per second"
+        spans: 6
+        metricName: istio_requests_total
+        dataType: rate
+        groupLabels:
+          - destination_service_name
+          - response_code
+          - response_flags
+        aggregations:
+          - label: destination_service_name
+            displayName: Servicio destino (ratings)
+            singleSelection: true
+          - label: response_code
+            displayName: HTTP code (filtrar 4xx/5xx)
+          - label: response_flags
+            displayName: Flags (UH = sin upstream)
+    - chart:
+        name: "Q10 — reviews → ratings (por código HTTP)"
+        unit: "requests per second"
+        spans: 6
+        metricName: istio_requests_total
+        dataType: rate
+        groupLabels:
+          - destination_service_name
+          - response_code
+          - response_flags
+        aggregations:
+          - label: destination_service_name
+            displayName: Servicio destino (ratings)
+            singleSelection: true
+          - label: response_code
+            displayName: HTTP code
+          - label: response_flags
+            displayName: Flags
+    - chart:
+        name: "Q12 — Tasa de éxito reviews → ratings (códigos HTTP)"
+        unit: "requests per second"
+        spans: 12
+        metricName: istio_requests_total
+        dataType: rate
+        groupLabels:
+          - destination_service_name
+          - response_code
+        aggregations:
+          - label: destination_service_name
+            displayName: Servicio destino (ratings)
+            singleSelection: true
+          - label: response_code
+            displayName: HTTP code (2xx/3xx = éxito)

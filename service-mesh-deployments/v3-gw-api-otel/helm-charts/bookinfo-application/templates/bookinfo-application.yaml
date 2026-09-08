@@ -177,7 +177,8 @@ spec:
   template:
     metadata:
       annotations:
-        kiali.io/dashboards: bookinfo-escenario-fallo-reviews
+        dashboards.kiali.io/templates: |
+{{- .Files.Get "files/kiali-dashboards-reviews.yaml" | nindent 10 }}
       labels:
         app: reviews
         version: v1
@@ -220,7 +221,8 @@ spec:
   template:
     metadata:
       annotations:
-        kiali.io/dashboards: bookinfo-escenario-fallo-reviews
+        dashboards.kiali.io/templates: |
+{{- .Files.Get "files/kiali-dashboards-reviews.yaml" | nindent 10 }}
       labels:
         app: reviews
         version: v2
@@ -263,7 +265,8 @@ spec:
   template:
     metadata:
       annotations:
-        kiali.io/dashboards: bookinfo-escenario-fallo-reviews
+        dashboards.kiali.io/templates: |
+{{- .Files.Get "files/kiali-dashboards-reviews.yaml" | nindent 10 }}
       labels:
         app: reviews
         version: v3
@@ -335,7 +338,8 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9080"
         prometheus.io/path: "/metrics"
-        kiali.io/dashboards: bookinfo-escenario-ok,bookinfo-escenario-fallo-productpage
+        dashboards.kiali.io/templates: |
+{{- .Files.Get "files/kiali-dashboards-productpage.yaml" | nindent 10 }}
       labels:
         app: productpage
         version: v1
