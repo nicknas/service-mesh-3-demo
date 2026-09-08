@@ -72,27 +72,16 @@
             singleSelection: true
           - label: response_code
             displayName: HTTP code
+# Kiali no admite filtros PromQL (p. ej. response_code=~"4..|5.."); Q11 solo en Grafana.
 - name: bookinfo-escenario-fallo-productpage
   title: Bookinfo — Escenario Fallo (productpage)
   discoverOn: istio_requests_total
   items:
     - chart:
-        name: "Q11 — productpage → reviews (códigos HTTP)"
-        chartType: line
-        unit: "requests per second"
-        spans: 6
-        metricName: istio_requests_total
-        dataType: rate
-        groupLabels:
-          - response_code
-        aggregations:
-          - label: destination_workload
-            displayName: Destino
-    - chart:
         name: "Q13 — Latencia p95 productpage"
         chartType: line
         unit: seconds
         unitScale: 0.001
-        spans: 6
+        spans: 12
         metricName: istio_request_duration_milliseconds
         dataType: histogram
