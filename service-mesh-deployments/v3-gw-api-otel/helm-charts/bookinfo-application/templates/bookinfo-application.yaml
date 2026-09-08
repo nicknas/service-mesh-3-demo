@@ -176,6 +176,8 @@ spec:
       version: v1
   template:
     metadata:
+      annotations:
+        kiali.io/dashboards: bookinfo-escenario-fallo-reviews
       labels:
         app: reviews
         version: v1
@@ -217,6 +219,8 @@ spec:
       version: v2
   template:
     metadata:
+      annotations:
+        kiali.io/dashboards: bookinfo-escenario-fallo-reviews
       labels:
         app: reviews
         version: v2
@@ -258,6 +262,8 @@ spec:
       version: v3
   template:
     metadata:
+      annotations:
+        kiali.io/dashboards: bookinfo-escenario-fallo-reviews
       labels:
         app: reviews
         version: v3
@@ -329,6 +335,7 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9080"
         prometheus.io/path: "/metrics"
+        kiali.io/dashboards: bookinfo-escenario-ok,bookinfo-escenario-fallo-productpage
       labels:
         app: productpage
         version: v1

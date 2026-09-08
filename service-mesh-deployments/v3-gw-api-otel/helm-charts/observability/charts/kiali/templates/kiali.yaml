@@ -5,6 +5,8 @@ metadata:
   namespace: {{ .Values.istio.namespace }}
 spec:
   version: default
+  custom_dashboards:
+{{- .Files.Get "files/bookinfo-custom-dashboards.yaml" | nindent 4 }}
   external_services:
     prometheus:
       auth:
