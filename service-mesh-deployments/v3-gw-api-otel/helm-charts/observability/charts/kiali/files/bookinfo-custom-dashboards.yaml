@@ -18,7 +18,7 @@
         unit: seconds
         unitScale: 0.001
         spans: 6
-        metricName: istio_request_duration_milliseconds_bucket
+        metricName: istio_request_duration_milliseconds
         dataType: histogram
     - chart:
         name: "Q2/Q3 — Códigos HTTP entrantes"
@@ -94,5 +94,5 @@
         unit: seconds
         unitScale: 0.001
         spans: 6
-        metricName: istio_request_duration_milliseconds_bucket
+        metricName: istio_request_duration_milliseconds
         dataType: histogram
