@@ -187,20 +187,13 @@ spec:
       - name: reviews
         image: quay.io/sail-dev/examples-bookinfo-reviews-v1:1.20.2
         imagePullPolicy: IfNotPresent
-        env:
-        - name: LOG_DIR
-          value: "/tmp/logs"
         ports:
         - containerPort: 9080
         volumeMounts:
-        - name: tmp
-          mountPath: /tmp
         - name: wlp-output
           mountPath: /opt/ibm/wlp/output
       volumes:
       - name: wlp-output
-        emptyDir: {}
-      - name: tmp
         emptyDir: {}
 ---
 apiVersion: apps/v1
@@ -230,20 +223,13 @@ spec:
       - name: reviews
         image: quay.io/sail-dev/examples-bookinfo-reviews-v2:1.20.2
         imagePullPolicy: IfNotPresent
-        env:
-        - name: LOG_DIR
-          value: "/tmp/logs"
         ports:
         - containerPort: 9080
         volumeMounts:
-        - name: tmp
-          mountPath: /tmp
         - name: wlp-output
           mountPath: /opt/ibm/wlp/output
       volumes:
       - name: wlp-output
-        emptyDir: {}
-      - name: tmp
         emptyDir: {}
 ---
 apiVersion: apps/v1
@@ -273,20 +259,13 @@ spec:
       - name: reviews
         image: quay.io/sail-dev/examples-bookinfo-reviews-v3:1.20.2
         imagePullPolicy: IfNotPresent
-        env:
-        - name: LOG_DIR
-          value: "/tmp/logs"
         ports:
         - containerPort: 9080
         volumeMounts:
-        - name: tmp
-          mountPath: /tmp
         - name: wlp-output
           mountPath: /opt/ibm/wlp/output
       volumes:
       - name: wlp-output
-        emptyDir: {}
-      - name: tmp
         emptyDir: {}
 ---
 ##################################################################################################

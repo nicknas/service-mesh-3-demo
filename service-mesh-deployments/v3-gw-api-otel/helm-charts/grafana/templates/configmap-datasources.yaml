@@ -39,10 +39,35 @@ data:
           httpMethod: GET
           tracesToMetrics:
             datasourceUid: prometheus
+          tracesToLogs:
+            datasourceUid: loki
+            filterByTraceID: true
+            mapTagNamesEnabled: true
+            tags:
+              - key: namespace
+                value: bookinfo
           serviceMap:
             datasourceUid: prometheus
           nodeGraph:
             enabled: true
         secureJsonData:
           httpHeaderValue1: Bearer $__file{/var/run/secrets/kubernetes.io/serviceaccount/token}
+    {{- end }}
+    {{- if .Values.datasources.loki.enabled }}
+      - name: Loki
+        uid: loki
+        type: loki
+        access: proxy
+        url: {{ include "grafana.loki.url" . | quote }}
+        jsonData:
+          maxLines: 1000
+          derivedFields:
+            - name: TraceID
+              matcherRegex: '"trace_id":"(\\w+)"'
+              url: "$${__value.raw}"
+              datasourceUid: tempo
+            - name: TraceID
+              matcherRegex: 'trace_id=(\\w+)'
+              url: "$${__value.raw}"
+              datasourceUid: tempo
     {{- end }}

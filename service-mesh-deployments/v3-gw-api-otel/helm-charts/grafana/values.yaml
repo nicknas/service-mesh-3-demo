@@ -44,3 +44,8 @@ datasources:
       tenant: bookinfo
     # Host suffix for external Tempo links (optional)
     clusterDomain: apps.cluster-bbgmb.dyn.redhatworkshops.io
+  loki:
+    enabled: true
+    namespace: logging-system
+    service: logging
+    port: 3100

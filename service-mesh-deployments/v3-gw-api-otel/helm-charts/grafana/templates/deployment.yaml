@@ -102,3 +102,5 @@ spec:
                   name: {{ include "grafana.fullname" . }}-dashboard-bookinfo-ok
               - configMap:
                   name: {{ include "grafana.fullname" . }}-dashboard-bookinfo-fallo
+              - configMap:
+                  name: {{ include "grafana.fullname" . }}-dashboard-bookinfo-logs

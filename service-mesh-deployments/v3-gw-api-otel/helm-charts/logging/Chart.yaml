@@ -1,0 +1,6 @@
+apiVersion: v2
+name: logging
+description: Loki log storage and Grafana Alloy collector for Bookinfo workloads
+type: application
+version: 0.1.0
+appVersion: "1.0"

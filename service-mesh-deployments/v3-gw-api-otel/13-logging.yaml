@@ -1,0 +1,25 @@
+#----------------------------------------------------------------------------------
+# Deploys Loki + Grafana Alloy log collection for Bookinfo (sync before Grafana)
+#----------------------------------------------------------------------------------
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: logging
+  namespace: openshift-gitops
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io/foreground
+spec:
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: logging-system
+  project: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+  source:
+    repoURL: https://github.com/nicknas/service-mesh-3-demo.git
+    targetRevision: main
+    path: service-mesh-deployments/v3-gw-api-otel/helm-charts/logging

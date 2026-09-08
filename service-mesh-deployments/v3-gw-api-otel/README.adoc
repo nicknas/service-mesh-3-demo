@@ -12,7 +12,7 @@ Este directorio contiene los manifiestos de Argo CD y los charts Helm necesarios
 * **OpenShift Service Mesh 3** (modo sidecar) con https://kubernetes.io/docs/concepts/services-networking/gateway/[Kubernetes Gateway API]
 * Aplicación de ejemplo **Bookinfo**
 * **Ingress gateway** basado en Gateway API
-* Stack de **observabilidad**: Kiali, OpenTelemetry Collector, MinIO, Tempo y Grafana
+* Stack de **observabilidad**: Kiali, OpenTelemetry Collector, MinIO, Tempo, Loki, Grafana Alloy y Grafana
 
 El despliegue se realiza mediante **OpenShift GitOps** (Argo CD). Los manifiestos `01`–`12` definen las Applications de Argo CD que sincronizan los charts Helm desde Git.
 
@@ -57,14 +57,17 @@ Los componentes se organizan en Applications de Argo CD independientes. El orden
 | 9 | `bookinfo-gateway` | `09-bookinfo-gateway.yaml`
 | 10 | `minio` | `10-minio.yaml`
 | 11 | `observability` | `11-observability.yaml`
-| 12 | `grafana` | `12-grafana.yaml`
+| 12 | `logging` | `13-logging.yaml`
+| 13 | `grafana` | `12-grafana.yaml`
 |===
 
 [NOTE]
 ====
 La Application `minio` debe sincronizarse **antes** que `observability`, ya que Tempo necesita el almacenamiento de objetos S3 que proporciona MinIO.
 
-La Application `grafana` debe sincronizarse **después** de `observability`, ya que los datasources de Prometheus y Tempo dependen del stack de monitorización y tracing.
+La Application `logging` debe sincronizarse **antes** que `grafana`, ya que el datasource de Loki apunta al servicio desplegado en `logging-system`.
+
+La Application `grafana` debe sincronizarse **después** de `observability` y `logging`, ya que los datasources de Prometheus, Tempo y Loki dependen del stack de monitorización, tracing y logs.
 ====
 
 === Diferencias con la API clásica de Istio
