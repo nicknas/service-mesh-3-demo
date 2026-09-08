@@ -1,5 +1,5 @@
 # Kiali custom dashboards — alineados con Grafana Bookinfo (Q1–Q13).
-# Escenario OK: 4 paneles (spans 12) para evitar scroll/layout roto en OSSMC.
+# OSSMC/Kiali: máximo 2 filas; spans por fila suman 12 (p. ej. 6+6).
 # Latencia: unit=seconds + unitScale=0.001 (ms en Prometheus).
 - name: bookinfo-escenario-ok
   title: Bookinfo — Escenario OK
@@ -9,39 +9,37 @@
         name: "Q1 — Visitas entrantes (RPS)"
         chartType: line
         unit: "requests per second"
-        spans: 12
+        spans: 6
         metricName: istio_requests_total
         dataType: rate
+    - chart:
+        name: "Q4 — Latencia p95 entrante"
+        chartType: line
+        unit: seconds
+        unitScale: 0.001
+        spans: 6
+        metricName: istio_request_duration_milliseconds_bucket
+        dataType: histogram
     - chart:
         name: "Q2/Q3 — Códigos HTTP entrantes"
         chartType: line
         unit: "requests per second"
-        spans: 12
+        spans: 6
         metricName: istio_requests_total
         dataType: rate
         aggregations:
           - label: response_code
             displayName: HTTP code
     - chart:
-        name: "Q4 — Latencia p95 entrante"
-        chartType: line
-        unit: seconds
-        unitScale: 0.001
-        spans: 12
-        metricName: istio_request_duration_milliseconds_bucket
-        dataType: histogram
-    - chart:
-        name: "Q5–Q8 — Tráfico por destino/origen"
+        name: "Q7 — Salidas por destino"
         chartType: line
         unit: "requests per second"
-        spans: 12
+        spans: 6
         metricName: istio_requests_total
         dataType: rate
         aggregations:
           - label: destination_workload
-            displayName: Destino (salida)
-          - label: source_workload
-            displayName: Origen (entrada)
+            displayName: Destino
 - name: bookinfo-escenario-fallo-reviews
   title: Bookinfo — Escenario Fallo (reviews→ratings)
   discoverOn: istio_requests_total
@@ -50,7 +48,7 @@
         name: "Q9/Q10 — reviews → ratings (códigos y flags)"
         chartType: line
         unit: "requests per second"
-        spans: 12
+        spans: 6
         metricName: istio_requests_total
         dataType: rate
         aggregations:
@@ -65,7 +63,7 @@
         name: "Q12 — Tasa de éxito reviews → ratings"
         chartType: line
         unit: "requests per second"
-        spans: 12
+        spans: 6
         metricName: istio_requests_total
         dataType: rate
         aggregations:
@@ -82,7 +80,7 @@
         name: "Q11 — Errores productpage → reviews"
         chartType: line
         unit: "requests per second"
-        spans: 12
+        spans: 6
         metricName: istio_requests_total
         dataType: rate
         aggregations:
@@ -95,6 +93,6 @@
         chartType: line
         unit: seconds
         unitScale: 0.001
-        spans: 12
+        spans: 6
         metricName: istio_request_duration_milliseconds_bucket
         dataType: histogram
