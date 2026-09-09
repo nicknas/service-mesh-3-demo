@@ -218,56 +218,35 @@ oc get packagemanifest <operator-name> -n openshift-marketplace -o jsonpath='{.s
 ----
 ====
 
-[cols="2,2,2,2,2,2", options="header"]
+[cols="2,2,3", options="header"]
 |===
-| Operador (OLM) | Chart Helm | Argo CD Application | Namespace OLM | Catálogo | CSV / canal
+| Operador (OLM) | Catálogo | CSV / canal
 
 | **OpenShift GitOps**
-| `helm-charts/openshift-gitops-operator`
-| _(bootstrap manual)_
-| `openshift-gitops-operator`
 | `redhat-operators`
 | `openshift-gitops-operator.v1.21.3` — canal `latest`
 
 | **OpenShift Service Mesh 3** (`servicemeshoperator3`)
-| `helm-charts/sm3-operator`
-| `service-mesh3-operator`
-| `openshift-operators`
 | `redhat-operators`
 | `servicemeshoperator3.v3.1.6` — canal `stable`
 
 | **Kiali Operator**
-| `helm-charts/kiali-operator`
-| `kiali-operator`
-| `openshift-operators`
 | `redhat-operators`
 | `kiali-operator.v2.22.1` — canal `stable`
 
 | **OpenTelemetry Operator**
-| `helm-charts/otel-operator`
-| `otel-operator`
-| `openshift-operators`
 | `redhat-operators`
 | `opentelemetry-operator.v0.144.0-1` — canal `stable`
 
 | **Tempo Operator**
-| `helm-charts/tempo-operator`
-| `tempo-operator`
-| `openshift-tempo-operator`
 | `redhat-operators`
 | `tempo-operator.v0.21.0-3` — canal `stable`
 
 | **Cluster Observability Operator**
-| `helm-charts/cluster-observability-operator`
-| `cluster-observability-operator`
-| `openshift-cluster-observability-operator`
 | `redhat-operators`
 | Canal `stable` (sin CSV fijado; última versión del catálogo)
 
 | **Grafana Operator**
-| `helm-charts/grafana-operator`
-| `grafana-operator`
-| `openshift-operators`
 | `community-operators`
 | `grafana-operator.v5.24.0` — canal `v5`
 |===
