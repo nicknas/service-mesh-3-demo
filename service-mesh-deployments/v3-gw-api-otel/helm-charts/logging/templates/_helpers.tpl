@@ -12,8 +12,12 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
-{{- define "logging.loki.endpoint" -}}
-{{- printf "http://%s.%s.svc.cluster.local:%d/loki/api/v1/push" (include "logging.fullname" .) .Values.namespace (.Values.loki.service.port | int) }}
+{{- define "logging.lokiStack.gatewayService" -}}
+{{- printf "%s-gateway-http" .Values.lokiStack.name -}}
+{{- end }}
+
+{{- define "logging.lokiStack.pushUrl" -}}
+{{- printf "https://%s.%s.svc.cluster.local:8080/api/logs/v1/%s/loki/api/v1/push" (include "logging.lokiStack.gatewayService" .) .Values.lokiStack.namespace .Values.lokiStack.tenant -}}
 {{- end }}
 
 {{- define "logging.bookinfoAppSelector" -}}

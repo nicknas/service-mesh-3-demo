@@ -24,6 +24,8 @@ spec:
               done
               mc mb --ignore-existing local/{{ .Values.bucket }}
               mc anonymous set download local/{{ .Values.bucket }} || true
+              mc mb --ignore-existing local/{{ .Values.lokiBucket }}
+              mc anonymous set download local/{{ .Values.lokiBucket }} || true
           env:
             - name: MC_CONFIG_DIR
               value: /tmp/.mc

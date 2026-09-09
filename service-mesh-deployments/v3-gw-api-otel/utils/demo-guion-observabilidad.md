@@ -37,7 +37,7 @@ Cliente → Página del producto → Detalles del libro
 - [ ] Menú **Service Mesh** visible en consola
 - [ ] Generar tráfico previo: `./utils/generate-traffic.sh 20` o 15× F5
 - [ ] Grafana accesible con datasources **Prometheus**, **Tempo** y **Loki**
-- [ ] Pods de logging en ejecución: `oc get pods -n logging-system` → `logging-loki` y `logging-alloy` Running
+- [ ] Logging en ejecución: `oc get lokistack logging -n openshift-logging` y `oc get pods -n logging-system` → `logging-alloy` Running; pods LokiStack en `openshift-logging`
 - [ ] Tener a mano (segunda pantalla / notas):
   - Comando fallo: `oc scale deployment ratings-v1 -n bookinfo --replicas=0`
   - Comando recuperación: `oc scale deployment ratings-v1 -n bookinfo --replicas=1`
@@ -346,9 +346,9 @@ oc scale deployment ratings-v1 -n bookinfo --replicas=1
 # Verificación rápida
 oc get pods -n bookinfo
 oc get podmonitor istio-proxies-monitor -n bookinfo
+oc get lokistack logging -n openshift-logging
+oc get pods -n openshift-logging
 oc get pods -n logging-system
-oc exec -n logging-system deploy/logging-loki -- \
-  wget -qO- 'http://localhost:3100/loki/api/v1/label/app/values'
 ```
 
 ---
@@ -368,9 +368,10 @@ El stack solo tenía **métricas** (Prometheus/Kiali) y **trazas** (OTel → Tem
 
 | Pieza               | Fichero / chart                          | Función                                          |
 | ------------------- | ---------------------------------------- | ------------------------------------------------ |
-| **Loki**            | `helm-charts/logging`                    | Almacén de logs (PVC 5 GiB, retención 7 días)    |
+| **Loki Operator**   | `05-loki-operator.yaml`                  | Operador Red Hat (`redhat-operators`, canal `stable-6.5`) |
+| **LokiStack**       | `helm-charts/logging`                    | Almacén de logs (S3 en MinIO, tenant `application`) |
 | **Grafana Alloy**   | mismo chart                              | Lee stdout de pods `bookinfo` vía API Kubernetes |
-| **Argo CD app**     | `13-logging.yaml`                        | Despliega namespace `logging-system`             |
+| **Argo CD app**     | `13-logging.yaml`                        | Alloy en `logging-system` + LokiStack en `openshift-logging` |
 | **Grafana Loki DS** | `helm-charts/grafana`                    | Consulta logs desde dashboards y Explore         |
 | **Dashboard logs**  | `configmap-dashboard-bookinfo-logs.yaml` | Panel con filtros por servicio y versión         |
 | **Bookinfo fix**    | `bookinfo-application.yaml`              | Gunicorn access log en productpage; Telemetry access logs para Envoy |

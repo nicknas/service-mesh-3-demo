@@ -15,6 +15,7 @@ auth:
   rootPassword: tempo12345
 
 bucket: tempo
+lokiBucket: loki
 
 service:
   port: 9000

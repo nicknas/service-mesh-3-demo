@@ -1,0 +1,21 @@
+apiVersion: loki.grafana.com/v1
+kind: LokiStack
+metadata:
+  name: {{ .Values.lokiStack.name }}
+  namespace: {{ .Values.lokiStack.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    {{- include "logging.labels" . | nindent 4 }}
+spec:
+  managementState: Managed
+  size: {{ .Values.lokiStack.size }}
+  storage:
+    schemas:
+      - version: v13
+        effectiveDate: {{ .Values.lokiStack.storage.effectiveDate | quote }}
+    secret:
+      name: {{ .Values.lokiStack.storage.secretName }}
+      type: s3
+  tenants:
+    mode: openshift-logging

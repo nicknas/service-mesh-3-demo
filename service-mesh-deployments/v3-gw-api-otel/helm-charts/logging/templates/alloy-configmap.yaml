@@ -79,6 +79,10 @@ data:
 
     loki.write "default" {
       endpoint {
-        url = "{{ include "logging.loki.endpoint" . }}"
+        url = "{{ include "logging.lokiStack.pushUrl" . }}"
+        bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+        tls_config {
+          ca_file = "/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt"
+        }
       }
     }

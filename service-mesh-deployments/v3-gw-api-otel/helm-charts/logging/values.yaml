@@ -2,23 +2,19 @@ namespace: logging-system
 
 nameOverride: logging
 
-loki:
-  image:
-    repository: grafana/loki
-    tag: "3.4.2"
-    pullPolicy: IfNotPresent
-  service:
-    port: 3100
-  persistence:
-    enabled: true
-    size: 5Gi
-  resources:
-    requests:
-      cpu: 100m
-      memory: 256Mi
-    limits:
-      cpu: 500m
-      memory: 512Mi
+lokiStack:
+  name: logging
+  namespace: openshift-logging
+  size: 1x.demo
+  storage:
+    secretName: logging-loki-s3
+    effectiveDate: "2024-01-01"
+  tenant: application
+  minio:
+    endpoint: http://minio.tracing-system.svc.cluster.local:9000
+    bucket: loki
+    accessKeyId: tempo
+    accessKeySecret: tempo12345
 
 alloy:
   image:

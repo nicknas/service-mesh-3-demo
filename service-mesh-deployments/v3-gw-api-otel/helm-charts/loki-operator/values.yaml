@@ -1,0 +1,8 @@
+subscription:
+  channel: stable-6.5
+  installPlanApproval: Automatic
+  name: loki-operator
+  namespace: openshift-operators-redhat
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  startingCSV: loki-operator.v6.5.0

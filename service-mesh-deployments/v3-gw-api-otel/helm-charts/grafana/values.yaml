@@ -51,6 +51,7 @@ datasources:
     clusterDomain: apps.cluster-bbgmb.dyn.redhatworkshops.io
   loki:
     enabled: true
-    namespace: logging-system
-    service: logging
-    port: 3100
+    lokiStack:
+      name: logging
+      namespace: openshift-logging
+    tenant: application

@@ -20,8 +20,12 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- printf "https://%s.%s.svc.cluster.local:8080/api/traces/v1/%s" (include "grafana.tempo.gatewayService" .) .Values.datasources.tempo.tempoStack.namespace .Values.datasources.tempo.tempoStack.tenant -}}
 {{- end }}
 
+{{- define "grafana.loki.gatewayService" -}}
+{{- printf "%s-gateway-http" .Values.datasources.loki.lokiStack.name -}}
+{{- end }}
+
 {{- define "grafana.loki.url" -}}
-{{- printf "http://%s.%s.svc.cluster.local:%d" .Values.datasources.loki.service .Values.datasources.loki.namespace (.Values.datasources.loki.port | int) -}}
+{{- printf "https://%s.%s.svc.cluster.local:8080/api/logs/v1/%s" (include "grafana.loki.gatewayService" .) .Values.datasources.loki.lokiStack.namespace .Values.datasources.loki.tenant -}}
 {{- end }}
 
 {{- define "grafana.instanceSelector" -}}

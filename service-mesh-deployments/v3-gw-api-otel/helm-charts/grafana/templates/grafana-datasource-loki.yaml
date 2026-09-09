@@ -20,6 +20,8 @@ spec:
     url: {{ include "grafana.loki.url" . | quote }}
     jsonData:
       maxLines: 1000
+      tlsSkipVerify: true
+      httpHeaderName1: Authorization
       derivedFields:
         - name: TraceID
           matcherRegex: '"trace_id":"(\\w+)"'
@@ -29,4 +31,13 @@ spec:
           matcherRegex: 'trace_id=(\\w+)'
           url: "$${__value.raw}"
           datasourceUid: tempo
+    secureJsonData:
+      httpHeaderValue1: placeholder
+  valuesFrom:
+    - targetPath: secureJsonData.httpHeaderValue1
+      valueFrom:
+        secretKeyRef:
+          name: {{ include "grafana.fullname" . }}-sa-token
+          key: token
+      prefix: "Bearer "
 {{- end }}
