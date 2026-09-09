@@ -14,7 +14,7 @@ Este directorio contiene los manifiestos de Argo CD y los charts Helm necesarios
 * **Ingress gateway** basado en Gateway API
 * Stack de **observabilidad**: Kiali, OpenTelemetry Collector, MinIO, Tempo, Loki, Grafana Alloy y Grafana
 
-El despliegue se realiza mediante **OpenShift GitOps** (Argo CD). Los manifiestos `01`–`13` definen las Applications de Argo CD que sincronizan los charts Helm desde Git.
+El despliegue se realiza mediante **OpenShift GitOps** (Argo CD). Los manifiestos `01`–`13` (más `05-grafana-operator`) definen las Applications de Argo CD que sincronizan los charts Helm desde Git.
 
 [NOTE]
 ====
@@ -27,7 +27,7 @@ Kubernetes Gateway API viene incluida (y soportada) por defecto desde OpenShift 
 * Acceso de administrador de cluster (`cluster-admin`)
 * Cliente `oc` autenticado contra el cluster
 * Cliente `helm` (v3)
-* Acceso al catálogo `redhat-operators` (OperatorHub)
+* Acceso a los catálogos `redhat-operators` y `community-operators` (OperatorHub)
 * Repositorio Git accesible desde el cluster (por defecto: `https://github.com/nicknas/service-mesh-3-demo.git`, rama `main`)
 
 [IMPORTANT]
@@ -51,6 +51,7 @@ Los componentes se organizan en Applications de Argo CD independientes. El orden
 | 3 | `otel-operator` | `03-otel-operator.yaml`
 | 4 | `tempo-operator` | `04-tempo-operator.yaml`
 | 5 | `cluster-observability-operator` | `05-cluster-observability-operator.yaml`
+| 5b | `grafana-operator` | `05-grafana-operator.yaml`
 | 6 | `sm3-control-plane` | `06-control-plane.yaml`
 | 7 | `bookinfo-application` | `07-bookinfo-application.yaml`
 | 8 | `istio-ingressgateway` | `08-istio-ingress-gateway.yaml`
@@ -67,7 +68,9 @@ La Application `minio` debe sincronizarse **antes** que `observability`, ya que 
 
 La Application `logging` debe sincronizarse **antes** que `grafana`, ya que el datasource de Loki apunta al servicio desplegado en `logging-system`.
 
-La Application `grafana` debe sincronizarse **después** de `observability` y `logging`, ya que los datasources de Prometheus, Tempo y Loki dependen del stack de monitorización, tracing y logs.
+La Application `grafana-operator` debe sincronizarse con el resto de operadores (antes del control plane y de la instancia Grafana).
+
+La Application `grafana` debe sincronizarse **después** de `grafana-operator`, `observability` y `logging`, ya que el operador debe estar listo y los datasources de Prometheus, Tempo y Loki deben existir.
 ====
 
 === Diferencias con la API clásica de Istio
@@ -147,7 +150,7 @@ for f in 0{1..9}-*.yaml 10-minio.yaml 11-observability.yaml 13-logging.yaml 12-g
 done
 ----
 
-Comprueba el estado de las 13 Applications:
+Comprueba el estado de las Applications:
 
 [source,bash]
 ----
@@ -200,22 +203,141 @@ Cada pod debe mostrar `2/2 Running` (aplicación + `istio-proxy`).
 
 == Componentes desplegados
 
-=== Operadores (Applications 01–05)
+[[operators-olm]]
+=== Operadores OLM (Applications 01–05 y 05-grafana-operator)
 
-[cols="1,2"]
-|===
-| Operador | Chart Helm
-
-| Service Mesh 3 | `helm-charts/sm3-operator`
-| Kiali | `helm-charts/kiali-operator`
-| OpenTelemetry | `helm-charts/otel-operator`
-| Grafana Tempo | `helm-charts/tempo-operator`
-| Cluster Observability | `helm-charts/cluster-observability-operator`
-|===
+Los operadores se instalan vía Operator Lifecycle Manager (OLM). Cada uno tiene un chart Helm con `Subscription` y, salvo el Cluster Observability Operator, una versión fijada (`startingCSV`) en su `values.yaml`.
 
 [NOTE]
 ====
-Si has instalado y desinstalado Service Mesh 2 previamente y la instalación del operador de Service Mesh 3 se queda bloqueada, elimina los CRDs antiguos de `sailoperator` que hayan quedado en el cluster.
+Si el catálogo del cluster no incluye el CSV exacto, ajusta `startingCSV` en el chart correspondiente o deja que OLM instale la última del canal. Comprueba disponibilidad con:
+
+[source,bash]
+----
+oc get packagemanifest <operator-name> -n openshift-marketplace -o jsonpath='{.status.channels[*].currentCSV}{"\n"}'
+----
+====
+
+[cols="2,2,2,2,2,2", options="header"]
+|===
+| Operador (OLM) | Chart Helm | Argo CD Application | Namespace OLM | Catálogo | CSV / canal
+
+| **OpenShift GitOps**
+| `helm-charts/openshift-gitops-operator`
+| _(bootstrap manual)_
+| `openshift-gitops-operator`
+| `redhat-operators`
+| `openshift-gitops-operator.v1.21.3` — canal `latest`
+
+| **OpenShift Service Mesh 3** (`servicemeshoperator3`)
+| `helm-charts/sm3-operator`
+| `service-mesh3-operator`
+| `openshift-operators`
+| `redhat-operators`
+| `servicemeshoperator3.v3.1.6` — canal `stable`
+
+| **Kiali Operator**
+| `helm-charts/kiali-operator`
+| `kiali-operator`
+| `openshift-operators`
+| `redhat-operators`
+| `kiali-operator.v2.22.1` — canal `stable`
+
+| **OpenTelemetry Operator**
+| `helm-charts/otel-operator`
+| `otel-operator`
+| `openshift-operators`
+| `redhat-operators`
+| `opentelemetry-operator.v0.144.0-1` — canal `stable`
+
+| **Tempo Operator**
+| `helm-charts/tempo-operator`
+| `tempo-operator`
+| `openshift-tempo-operator`
+| `redhat-operators`
+| `tempo-operator.v0.21.0-3` — canal `stable`
+
+| **Cluster Observability Operator**
+| `helm-charts/cluster-observability-operator`
+| `cluster-observability-operator`
+| `openshift-cluster-observability-operator`
+| `redhat-operators`
+| Canal `stable` (sin CSV fijado; última versión del catálogo)
+
+| **Grafana Operator**
+| `helm-charts/grafana-operator`
+| `grafana-operator`
+| `openshift-operators`
+| `community-operators`
+| `grafana-operator.v5.24.0` — canal `v5`
+|===
+
+==== Instancias gestionadas por operador
+
+Estos componentes no son operadores OLM; usan CRs de operadores ya instalados, desplegados por charts Helm adicionales:
+
+[cols="2,3,2", options="header"]
+|===
+| Componente | Chart / CR | Operador que lo gestiona
+
+| **Istio control plane** (Sail)
+| `helm-charts/sm3-control-plane` → `Istio`
+| Service Mesh 3 Operator
+
+| **Kiali**
+| `helm-charts/observability/charts/kiali` → `Kiali`
+| Kiali Operator
+
+| **TempoStack**
+| `helm-charts/observability/charts/tempostack` → `TempoStack`
+| Tempo Operator
+
+| **OpenTelemetry Collector**
+| `helm-charts/observability/charts/otel-collector` → `OpenTelemetryCollector`
+| OpenTelemetry Operator
+
+| **Grafana** (instancia demo)
+| `helm-charts/grafana` → `Grafana`, `GrafanaDatasource`, `GrafanaDashboard`
+| Grafana Operator
+|===
+
+==== Orden de instalación de operadores
+
+Los operadores deben estar en estado `Succeeded` antes de sincronizar las Applications que crean CRs (`sm3-control-plane`, `observability`, `grafana`, etc.):
+
+[source,bash]
+----
+for f in \
+  01-service-mesh3-operator.yaml \
+  02-kiali-operator.yaml \
+  03-otel-operator.yaml \
+  04-tempo-operator.yaml \
+  05-cluster-observability-operator.yaml \
+  05-grafana-operator.yaml; do
+  oc apply -f "$f"
+done
+
+oc get csv -A | grep -E 'servicemesh|kiali|opentelemetry|tempo|cluster-observability|grafana'
+----
+
+==== Verificación rápida de operadores
+
+[source,bash]
+----
+oc get subscription -A | grep -E 'servicemesh|kiali|opentelemetry|tempo|cluster-observability|grafana|gitops'
+
+oc get pods -n openshift-operators -l 'operators.coreos.com/grafana-operator.openshift-operators'
+oc get pods -n openshift-operators -l 'operators.coreos.com/kiali-operator.openshift-operators'
+oc get pods -n openshift-tempo-operator
+oc get pods -n openshift-cluster-observability-operator
+----
+
+[NOTE]
+====
+* **Grafana Operator** proviene de `community-operators`, no de `redhat-operators`. Requiere acceso al catálogo community en OperatorHub.
+* **Cluster Observability Operator** habilita Perses y plugins de observabilidad en consola (`Observe → Dashboards`). No sustituye a Grafana en esta demo.
+* Los subcharts de observabilidad (`kiali`, `otel-collector`, `tempostack`) son locales (`file://`); no se empaquetan como `.tgz` en el repositorio.
+* Si has instalado y desinstalado Service Mesh 2 previamente y la instalación del operador de Service Mesh 3 se queda bloqueada, elimina los CRDs antiguos de `sailoperator` que hayan quedado en el cluster.
 ====
 
 === Control plane (Application 06)
@@ -408,15 +530,18 @@ oc exec -n logging-system deploy/logging-loki -- \
 # Debe listar: productpage, reviews, details, ratings
 ----
 
+=== Grafana Operator (Application 05-grafana-operator)
+
+Instala el **Grafana Operator** desde `community-operators` (canal `v5`, CSV `grafana-operator.v5.24.0`). Chart: `helm-charts/grafana-operator`. Ver la tabla de operadores OLM en <<operators-olm>>.
+
 === Grafana (Application 12)
 
-El manifest `12-grafana.yaml` despliega:
+El manifest `12-grafana.yaml` despliega la instancia de Grafana mediante CRs del operador:
 
 * Namespace `grafana-system`
-* Instancia de **Grafana** con persistencia (PVC)
-* Ruta OpenShift para acceso externo
-* Datasources provisionados: **Prometheus** (Thanos Querier), **Tempo** (tenant `bookinfo`) y **Loki** (`logging-system`)
-* Dashboards predefinidos en carpeta *Bookinfo*:
+* CR `Grafana` con persistencia (PVC), ruta OpenShift y versión de imagen configurable
+* CRs `GrafanaDatasource`: **Prometheus** (Thanos Querier), **Tempo** (tenant `bookinfo`) y **Loki** (`logging-system`)
+* CRs `GrafanaDashboard` en carpeta *Bookinfo*:
 ** *Bookinfo — Escenario OK* (queries Q1–Q8 del cheat sheet)
 ** *Bookinfo — Escenario Fallo* (queries Q9–Q13; ratings caído)
 ** *Bookinfo — Logs* (panel de logs con filtros por servicio y versión)
@@ -425,13 +550,14 @@ La integración Tempo → Loki (`tracesToLogs`) permite saltar desde una traza a
 
 Chart: `helm-charts/grafana`
 
-Credenciales por defecto (demo): usuario `admin`, contraseña `grafana` (configurable en `helm-charts/grafana/values.yaml`).
+Credenciales por defecto (demo): usuario `admin`, contraseña `grafana` (configurable en `helm-charts/grafana/values.yaml` → `spec.config.security` del CR `Grafana`).
 
 Acceso:
 
 [source,bash]
 ----
-oc get route grafana -n grafana-system -o jsonpath='https://{.spec.host}{"\n"}'
+oc get route -n grafana-system -o jsonpath='https://{.items[0].spec.host}{"\n"}'
+oc get grafana -n grafana-system
 ----
 
 ==== Integración de Kiali con Tempo (pestaña Traces)
@@ -600,6 +726,7 @@ Para métricas de aplicación usa *metrics merging* de Istio: declara `prometheu
 | `otel-operator` | `helm-charts/otel-operator`
 | `tempo-operator` | `helm-charts/tempo-operator`
 | `cluster-observability-operator` | `helm-charts/cluster-observability-operator`
+| `grafana-operator` | `helm-charts/grafana-operator`
 | `sm3-control-plane` | `helm-charts/sm3-control-plane`
 | `bookinfo-application` | `helm-charts/bookinfo-application`
 | `istio-ingressgateway` | `helm-charts/istio-ingressgateway`
@@ -626,6 +753,7 @@ oc delete istiocni --all -n istio-cni --ignore-not-found
 oc delete kiali --all -n istio-system --ignore-not-found
 oc delete opentelemetrycollector --all -n istio-system --ignore-not-found
 oc delete tempostack --all -n tracing-system --ignore-not-found
+oc delete grafana,grafanadatasource,grafanadashboard --all -n grafana-system --ignore-not-found
 
 # 3. Revertir RBAC de GitOps al valor por defecto
 oc patch argocd openshift-gitops -n openshift-gitops --type merge \
@@ -636,7 +764,7 @@ oc delete clusterrolebinding openshift-gitops-argocd-cluster-admin --ignore-not-
 
 # 5. Desinstalar operadores (subscriptions y CSVs)
 oc delete subscription openshift-gitops-operator -n openshift-gitops-operator --ignore-not-found
-oc delete subscription servicemesh3-operator kiali-operator opentelemetry-operator \
+oc delete subscription servicemesh3-operator kiali-operator opentelemetry-operator grafana-operator \
   -n openshift-operators --ignore-not-found
 oc delete subscription tempo-operator -n openshift-tempo-operator --ignore-not-found
 oc delete subscription cluster-observability-operator \

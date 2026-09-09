@@ -2,6 +2,11 @@ namespace: grafana-system
 
 nameOverride: grafana
 
+# Label used by GrafanaDatasource / GrafanaDashboard instanceSelector
+instance:
+  selectorLabel: dashboards
+  selectorValue: bookinfo
+
 image:
   repository: grafana/grafana
   tag: "11.5.2"

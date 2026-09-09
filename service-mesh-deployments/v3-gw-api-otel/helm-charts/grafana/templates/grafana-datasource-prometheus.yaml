@@ -1,0 +1,36 @@
+{{- if .Values.datasources.prometheus.enabled }}
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDatasource
+metadata:
+  name: {{ include "grafana.fullname" . }}-prometheus
+  namespace: {{ .Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    {{- include "grafana.labels" . | nindent 4 }}
+spec:
+  instanceSelector:
+    matchLabels:
+      {{- include "grafana.instanceLabels" . | nindent 6 }}
+  datasource:
+    name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: {{ .Values.datasources.prometheus.url | quote }}
+    isDefault: true
+    jsonData:
+      httpMethod: POST
+      tlsSkipVerify: true
+      timeInterval: 30s
+      httpHeaderName1: Authorization
+    secureJsonData:
+      httpHeaderValue1: placeholder
+  valuesFrom:
+    - targetPath: secureJsonData.httpHeaderValue1
+      valueFrom:
+        secretKeyRef:
+          name: {{ include "grafana.fullname" . }}-sa-token
+          key: token
+      prefix: "Bearer "
+{{- end }}

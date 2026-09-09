@@ -1,0 +1,47 @@
+{{- if .Values.datasources.tempo.enabled }}
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDatasource
+metadata:
+  name: {{ include "grafana.fullname" . }}-tempo
+  namespace: {{ .Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    {{- include "grafana.labels" . | nindent 4 }}
+spec:
+  instanceSelector:
+    matchLabels:
+      {{- include "grafana.instanceLabels" . | nindent 6 }}
+  datasource:
+    name: Tempo
+    uid: tempo
+    type: tempo
+    access: proxy
+    url: {{ include "grafana.tempo.url" . | quote }}
+    jsonData:
+      tlsSkipVerify: true
+      httpHeaderName1: Authorization
+      httpMethod: GET
+      tracesToMetrics:
+        datasourceUid: prometheus
+      tracesToLogs:
+        datasourceUid: loki
+        filterByTraceID: true
+        mapTagNamesEnabled: true
+        tags:
+          - key: namespace
+            value: bookinfo
+      serviceMap:
+        datasourceUid: prometheus
+      nodeGraph:
+        enabled: true
+    secureJsonData:
+      httpHeaderValue1: placeholder
+  valuesFrom:
+    - targetPath: secureJsonData.httpHeaderValue1
+      valueFrom:
+        secretKeyRef:
+          name: {{ include "grafana.fullname" . }}-sa-token
+          key: token
+      prefix: "Bearer "
+{{- end }}

@@ -1,0 +1,32 @@
+{{- if .Values.datasources.loki.enabled }}
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDatasource
+metadata:
+  name: {{ include "grafana.fullname" . }}-loki
+  namespace: {{ .Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    {{- include "grafana.labels" . | nindent 4 }}
+spec:
+  instanceSelector:
+    matchLabels:
+      {{- include "grafana.instanceLabels" . | nindent 6 }}
+  datasource:
+    name: Loki
+    uid: loki
+    type: loki
+    access: proxy
+    url: {{ include "grafana.loki.url" . | quote }}
+    jsonData:
+      maxLines: 1000
+      derivedFields:
+        - name: TraceID
+          matcherRegex: '"trace_id":"(\\w+)"'
+          url: "$${__value.raw}"
+          datasourceUid: tempo
+        - name: TraceID
+          matcherRegex: 'trace_id=(\\w+)'
+          url: "$${__value.raw}"
+          datasourceUid: tempo
+{{- end }}

@@ -23,3 +23,11 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- define "grafana.loki.url" -}}
 {{- printf "http://%s.%s.svc.cluster.local:%d" .Values.datasources.loki.service .Values.datasources.loki.namespace (.Values.datasources.loki.port | int) -}}
 {{- end }}
+
+{{- define "grafana.instanceSelector" -}}
+{{- printf "%s: %s" .Values.instance.selectorLabel .Values.instance.selectorValue -}}
+{{- end }}
+
+{{- define "grafana.instanceLabels" -}}
+{{ .Values.instance.selectorLabel }}: {{ .Values.instance.selectorValue | quote }}
+{{- end }}

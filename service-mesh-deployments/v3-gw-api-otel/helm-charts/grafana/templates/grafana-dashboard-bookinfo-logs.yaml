@@ -1,0 +1,17 @@
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: {{ include "grafana.fullname" . }}-bookinfo-logs
+  namespace: {{ .Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    {{- include "grafana.labels" . | nindent 4 }}
+spec:
+  resyncPeriod: 30s
+  folder: Bookinfo
+  instanceSelector:
+    matchLabels:
+      {{- include "grafana.instanceLabels" . | nindent 6 }}
+  json: |
+{{ .Files.Get "files/bookinfo-logs.json" | indent 4 }}

@@ -1,0 +1,8 @@
+subscription:
+  channel: v5
+  installPlanApproval: Automatic
+  name: grafana-operator
+  namespace: openshift-operators
+  source: community-operators
+  sourceNamespace: openshift-marketplace
+  startingCSV: grafana-operator.v5.24.0

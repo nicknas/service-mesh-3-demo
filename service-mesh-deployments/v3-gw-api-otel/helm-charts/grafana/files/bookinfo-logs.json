@@ -1,0 +1,110 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "gridPos": { "h": 3, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "options": {
+        "content": "**Bookinfo logs** — stdout de apps (`productpage`, `reviews`, `details`, `ratings`) y access logs de Envoy (`istio-proxy`) en `bookinfo`. `details`/`ratings` registran cada petición en la app; `productpage` usa access log de Gunicorn; `reviews` (Open Liberty) se ve sobre todo vía `istio-proxy`. Filtra por **Service** y **Container**.",
+        "mode": "markdown"
+      },
+      "title": "Bookinfo logs",
+      "type": "text"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 18, "w": 24, "x": 0, "y": 3 },
+      "id": 1,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "expr": "{namespace=\"bookinfo\", app=~\"$app\", version=~\"$version\", container=~\"$container\"} |= \"$search\"",
+          "refId": "A"
+        }
+      ],
+      "title": "Application logs",
+      "type": "logs"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["bookinfo", "logs", "loki"],
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": true, "text": "All", "value": ".*" },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Service",
+        "multi": false,
+        "name": "app",
+        "options": [
+          { "selected": true, "text": "All", "value": ".*" },
+          { "selected": false, "text": "productpage", "value": "productpage" },
+          { "selected": false, "text": "reviews", "value": "reviews" },
+          { "selected": false, "text": "details", "value": "details" },
+          { "selected": false, "text": "ratings", "value": "ratings" }
+        ],
+        "query": ".*,productpage,reviews,details,ratings",
+        "type": "custom"
+      },
+      {
+        "current": { "selected": true, "text": "All", "value": ".*|istio-proxy" },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Container",
+        "multi": false,
+        "name": "container",
+        "options": [
+          { "selected": true, "text": "All", "value": ".*|istio-proxy" },
+          { "selected": false, "text": "app only", "value": "productpage|reviews|details|ratings" },
+          { "selected": false, "text": "istio-proxy", "value": "istio-proxy" }
+        ],
+        "query": ".*|istio-proxy,productpage|reviews|details|ratings,istio-proxy",
+        "type": "custom"
+      },
+      {
+        "current": { "selected": true, "text": "All", "value": ".*" },
+        "datasource": { "type": "loki", "uid": "loki" },
+        "definition": "label_values({namespace=\"bookinfo\"}, version)",
+        "hide": 0,
+        "includeAll": true,
+        "allValue": ".*",
+        "label": "Version",
+        "multi": false,
+        "name": "version",
+        "query": "label_values({namespace=\"bookinfo\"}, version)",
+        "refresh": 2,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "current": { "selected": false, "text": "", "value": "" },
+        "hide": 0,
+        "label": "Search",
+        "name": "search",
+        "options": [{ "selected": true, "text": "", "value": "" }],
+        "query": "",
+        "type": "textbox"
+      }
+    ]
+  },
+  "time": { "from": "now-15m", "to": "now" },
+  "title": "Bookinfo — Logs",
+  "uid": "bookinfo-logs",
+  "version": 1
+}

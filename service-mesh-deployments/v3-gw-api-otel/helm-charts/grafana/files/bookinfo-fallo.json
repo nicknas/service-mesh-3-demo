@@ -1,0 +1,115 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "title": "Escenario OK",
+      "type": "dashboard",
+      "url": "/d/bookinfo-ok",
+      "icon": "check"
+    }
+  ],
+  "panels": [
+    {
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "options": {
+        "content": "**Escenario Fallo** — Apaga ratings y genera tráfico:\n\n```bash\noc scale deployment ratings-v1 -n bookinfo --replicas=0\n./utils/generate-traffic.sh 20\n```\n\nRecuperación: `oc scale deployment ratings-v1 -n bookinfo --replicas=1`\n\n**Nota:** los errores aparecen como **503 UH** en `reviews → ratings` (`destination_service_name=ratings`). `productpage` puede seguir respondiendo 200.",
+        "mode": "markdown"
+      },
+      "title": "Escenario Fallo — ratings caído",
+      "type": "text"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Q10 — reviews → ratings: éxito vs error (comparativa)",
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "id": 10,
+      "targets": [
+        {
+          "expr": "sum(rate(istio_requests_total{namespace=\"bookinfo\", source_workload=~\"reviews.*\", destination_service_name=\"ratings\", reporter=\"source\"}[5m])) by (response_code, response_flags)",
+          "legendFormat": "{{ "{{" }}response_code{{ "}}" }} {{ "{{" }}response_flags{{ "}}" }}",
+          "refId": "A"
+        }
+      ],
+      "title": "Q10 — reviews → ratings (por código HTTP)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Q9 — Errores reviews → ratings (causa raíz)",
+      "fieldConfig": { "defaults": { "unit": "reqps", "color": { "mode": "palette-classic" } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "id": 9,
+      "targets": [
+        {
+          "expr": "sum(rate(istio_requests_total{namespace=\"bookinfo\", source_workload=~\"reviews.*\", destination_service_name=\"ratings\", reporter=\"source\", response_code=~\"4..|5..\"}[5m])) by (response_code, response_flags)",
+          "legendFormat": "{{ "{{" }}response_code{{ "}}" }} {{ "{{" }}response_flags{{ "}}" }}",
+          "refId": "A"
+        }
+      ],
+      "title": "Q9 — Errores reviews → ratings",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Q11 — Errores productpage → reviews (vacío si solo ratings está caído)",
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "id": 11,
+      "targets": [
+        {
+          "expr": "sum(rate(istio_requests_total{namespace=\"bookinfo\", source_workload=~\"productpage.*\", destination_workload=~\"reviews.*\", reporter=\"source\", response_code=~\"4..|5..\"}[5m])) by (response_code)",
+          "legendFormat": "{{ "{{" }}response_code{{ "}}" }}",
+          "refId": "A"
+        }
+      ],
+      "title": "Q11 — Errores productpage → reviews",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Q12 — Tasa de éxito reviews → ratings (baja cuando ratings no tiene pods)",
+      "fieldConfig": { "defaults": { "unit": "percentunit", "max": 1, "min": 0 }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "id": 12,
+      "targets": [
+        {
+          "expr": "sum(rate(istio_requests_total{namespace=\"bookinfo\", source_workload=~\"reviews.*\", destination_service_name=\"ratings\", reporter=\"source\", response_code!~\"4..|5..\"}[5m])) / sum(rate(istio_requests_total{namespace=\"bookinfo\", source_workload=~\"reviews.*\", destination_service_name=\"ratings\", reporter=\"source\"}[5m]))",
+          "legendFormat": "success rate",
+          "refId": "A"
+        }
+      ],
+      "title": "Q12 — Tasa de éxito reviews → ratings",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "Q13 — Latencia p95 (puede subir con timeouts)",
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 20 },
+      "id": 13,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(istio_request_duration_milliseconds_bucket{namespace=\"bookinfo\", destination_workload=~\"productpage.*\", reporter=\"destination\"}[5m])) by (le))",
+          "legendFormat": "p95",
+          "refId": "A"
+        }
+      ],
+      "title": "Q13 — Latencia p95 productpage (comparar antes/después)",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["bookinfo", "istio", "service-mesh", "escenario-fallo"],
+  "templating": { "list": [] },
+  "time": { "from": "now-15m", "to": "now" },
+  "title": "Bookinfo — Escenario Fallo",
+  "uid": "bookinfo-fallo",
+  "version": 1
+}

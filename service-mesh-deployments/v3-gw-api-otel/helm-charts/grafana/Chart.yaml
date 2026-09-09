@@ -1,5 +1,5 @@
 apiVersion: v2
 name: grafana
-description: Grafana for Bookinfo / Service Mesh demo dashboards
+description: Grafana instance (Grafana Operator CRs) for Bookinfo demo dashboards
 type: application
 version: 0.1.0
