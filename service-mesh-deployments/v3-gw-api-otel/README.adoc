@@ -12,7 +12,7 @@ Este directorio contiene los manifiestos de Argo CD y los charts Helm necesarios
 * **OpenShift Service Mesh 3** (modo sidecar) con https://kubernetes.io/docs/concepts/services-networking/gateway/[Kubernetes Gateway API]
 * Aplicación de ejemplo **Bookinfo**
 * **Ingress gateway** basado en Gateway API
-* Stack de **observabilidad**: Kiali, OpenTelemetry Collector, MinIO, Tempo, Loki, Grafana Alloy y Grafana
+* Stack de **observabilidad**: Kiali, OpenTelemetry Collector, MinIO, Tempo, Loki, Grafana Alloy y Grafana (fan-out opcional a Dynatrace SaaS)
 
 El despliegue se realiza mediante **OpenShift GitOps** (Argo CD). Los manifiestos `01`–`13` (más `05-grafana-operator`) definen las Applications de Argo CD que sincronizan los charts Helm desde Git.
 
@@ -456,7 +456,7 @@ El manifest `10-minio.yaml` despliega de forma independiente el almacenamiento d
 * Deployment y servicio MinIO
 * PVC de persistencia
 * Secret con credenciales S3
-* Job de creación del bucket `tempo`
+* Job de creación de buckets `tempo` y `loki` (hook de Argo CD; se recrea en cada sync)
 
 Chart: `helm-charts/minio`
 
@@ -475,6 +475,133 @@ El manifest `11-observability.yaml` despliega:
 Chart: `helm-charts/observability`
 
 image::images/sm3-otel-tempo.excalidraw.png[]
+
+[[dynatrace-tempo-coexistence]]
+==== Coexistencia Dynatrace SaaS + Tempo
+
+En entornos donde el cliente ya usa **Dynatrace SaaS** y planea desplegar **Tempo** en sus clusters OpenShift (por ejemplo para Service Mesh, Kiali o Grafana), ambos backends **pueden coexistir sin conflicto**. No es necesario elegir uno u otro.
+
+===== Roles complementarios
+
+[cols="1,2,2", options="header"]
+|===
+| | Dynatrace SaaS | Tempo (in-cluster)
+
+| **Propósito**
+| Observabilidad corporativa (APM, infra, alerting, Smartscape…)
+| Backend de trazas del stack mesh (Kiali, Grafana, consola OpenShift)
+
+| **Consulta**
+| UI Dynatrace / equipos de plataforma
+| Kiali, Grafana, Jaeger UI del gateway Tempo
+
+| **Almacenamiento**
+| Tenant cloud
+| Object storage en cluster (MinIO en esta demo)
+|===
+
+===== Arquitectura recomendada (fan-out)
+
+Istio mantiene un único destino de exportación (`extensionProvider` `otel` → collector en `istio-system`). El **OpenTelemetry Collector** reenvía en paralelo:
+
+[source]
+----
+Istio sidecars (OTLP gRPC :4317)
+        │
+        ▼
+OpenTelemetry Collector (istio-system)
+        ├──► Tempo gateway :8090  ──► MinIO  ──► Kiali / Grafana
+        └──► Dynatrace SaaS     ──► https://{env-id}.live.dynatrace.com/api/v2/otlp
+----
+
+Ventajas:
+
+* **Sin cambios en Istio** ni en el flujo Kiali → Tempo de la demo.
+* **Tempo** sigue siendo el backend del mesh local.
+* **Dynatrace** recibe las mismas trazas para correlación con el resto de la plataforma del cliente.
+* **Sin conflicto de puertos**: cada backend tiene su propio endpoint; no se instala un segundo collector de ingest mesh salvo el opcional de Dynatrace Operator (no requerido en este patrón).
+
+[NOTE]
+====
+Dynatrace SaaS acepta OTLP por **HTTP/protobuf**, no por gRPC directo al tenant. El collector del cluster actúa como traductor: recibe gRPC de Istio y exporta a Tempo (gRPC) y a Dynatrace (HTTP). No hace falta instalar el operador **OpenShift Logging** ni el operador **Dynatrace** solo para este fan-out de trazas mesh; basta con un token de ingest y egress HTTPS hacia el tenant SaaS.
+====
+
+===== Ejemplo en esta demo (desactivado por defecto)
+
+El subchart `helm-charts/observability/charts/otel-collector` incluye un exporter opcional `otlphttp/dynatrace` en el pipeline `traces`. Por defecto está **desactivado** (`dynatrace.enabled: false`).
+
+Para activarlo:
+
+. Crear un token en Dynatrace con scope `openTelemetryTrace.ingest`.
+. Crear el Secret en `istio-system` (no commitear el token):
+
++
+[source,bash]
+----
+oc create secret generic otel-dynatrace-ingest -n istio-system \
+  --from-literal=apiToken='dt0c01.XXXXXXXX'
+----
+
+. Aplicar los values de ejemplo (sustituir `YOUR_ENV_ID`):
+
++
+[source,bash]
+----
+# Opción A: helm local
+helm upgrade observability ./helm-charts/observability -n istio-system \
+  -f ./helm-charts/observability/values-dynatrace.example.yaml
+
+# Opción B: Argo CD — añadir en la Application 11:
+#   source.helm.valueFiles:
+#     - values-dynatrace.example.yaml
+----
+
+Fichero de referencia: `helm-charts/observability/values-dynatrace.example.yaml`.
+
+Fragmento del collector con fan-out (cuando `dynatrace.enabled: true`):
+
+[source,yaml]
+----
+exporters:
+  otlp/tempo:
+    endpoint: tempo-tempo-gateway.tracing-system.svc.cluster.local:8090
+    # ... auth Tempo (existente)
+  otlphttp/dynatrace:
+    endpoint: https://YOUR_ENV_ID.live.dynatrace.com/api/v2/otlp
+    headers:
+      Authorization: "Api-Token ${env:DT_API_TOKEN}"
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [debug, otlp/tempo, otlphttp/dynatrace]
+----
+
+===== Verificación
+
+. Genera tráfico: `./utils/generate-traffic.sh 30`
+. **Tempo / Kiali:** pestaña *Traces* en un workload de Bookinfo (sin cambios).
+. **Dynatrace:** en *Distributed traces*, filtrar por `service.name` (por ejemplo `productpage.bookinfo`).
+
+Comprobar que el collector exporta sin errores:
+
+[source,bash]
+----
+oc logs -n istio-system -l app.kubernetes.io/name=otel-collector --tail=50
+oc get opentelemetrycollector otel -n istio-system -o yaml | grep -A3 otlphttp
+----
+
+===== Qué evitar
+
+* No apuntar `meshConfig.extensionProviders` a Dynatrace y al collector RH a la vez.
+* No activar `otlpExporterConfiguration` del Dynatrace Operator en `istio-system` / `bookinfo` si el mesh ya exporta vía collector (riesgo de duplicidad).
+* No usar exporter `otlp` (gRPC) hacia el tenant SaaS de Dynatrace; usar `otlphttp`.
+
+===== Mensaje ejecutivo (cliente)
+
+[quote]
+Dynatrace SaaS y Tempo pueden desplegarse en el mismo cluster OpenShift sin conflicto. La arquitectura recomendada centraliza la telemetría del mesh en un OpenTelemetry Collector y configura exportación en paralelo: Tempo para el ecosistema Service Mesh (Kiali, Grafana) y Dynatrace para la observabilidad corporativa en SaaS. No es necesario renunciar a Tempo por usar Dynatrace, ni viceversa.
+[/quote]
 
 === Logging (Application 13)
 
@@ -676,7 +803,7 @@ En modo multitenancy de Tempo (`spec.tenants.mode: openshift`), el gateway valid
 ===== Flujo de trazas
 
 . Istio genera spans (Telemetry CR con provider `otel`, sampling al 100 %).
-. El OpenTelemetry Collector los reenvía a Tempo vía OTLP.
+. El OpenTelemetry Collector los reenvía a Tempo vía OTLP (y opcionalmente a Dynatrace SaaS; ver <<dynatrace-tempo-coexistence>>).
 . Tempo los almacena en MinIO.
 . Kiali consulta Tempo mediante `internal_url` y muestra la pestaña *Traces* en workloads y aplicaciones.
 
@@ -843,6 +970,24 @@ oc delete namespace openshift-gitops --ignore-not-found
 * **Applications en `OutOfSync` con `forbidden`:** falta el `ClusterRoleBinding` del paso 4.
 * **Pods de Bookinfo sin sidecar (`1/1`):** reinicia los deployments tras sincronizar el control plane.
 * **MinIO bloqueado en sync:** la Application `minio` debe aplicarse antes que `observability`. El PVC y el Deployment comparten sync-wave `1` para evitar bloqueos con almacenamiento `WaitForFirstConsumer`.
+* **Job `minio-create-buckets` fallido o Application `minio` en `Progressing`:** Argo CD lanza el Job en sync-wave `2` cuando el Deployment ya existe, pero MinIO puede no estar *Ready* aún. El chart incluye `readinessProbe` en MinIO y un bucle de espera con timeout en el Job. Si el Job falló en un intento anterior, bórralo y resincroniza:
++
+[source,bash]
+----
+oc get jobs -n tracing-system
+oc logs -n tracing-system job/minio-create-buckets
+oc delete job minio-create-buckets -n tracing-system --ignore-not-found
+oc delete job minio-create-bucket -n tracing-system --ignore-not-found  # nombre antiguo del chart
+argocd app sync minio -n openshift-gitops
+----
++
+Si el error es `cannot patch` o `field is immutable` en el Job, es la inmutabilidad de Kubernetes: el chart usa `argocd.argoproj.io/hook-delete-policy: BeforeHookCreation` para recrear el Job en cada sync. Si persiste, elimina el Job manualmente como arriba.
++
+El Job usa un *initContainer* (`curl`) que espera `GET /minio/health/ready` y solo entonces el contenedor `mc` ejecuta **una vez** `mc --config-dir /var/mc alias set` (sin bucle `until mc alias set`, que fallaba en OpenShift al no poder escribir la config de `mc` con el UID asignado por SCC). La config se guarda en un `emptyDir` montado en `/var/mc` con ServiceAccount + SCC `nonroot-v2`.
++
+Si el pod del Job no arranca por SCC, comprueba: `oc describe pod -n tracing-system -l job-name=minio-create-buckets`.
++
+Si no puede hacer pull de `quay.io/minio/mc` o `curlimages/curl`, sustituye `mcImage` / `bucketJob.waitImage` en `helm-charts/minio/values.yaml` por imágenes del mirror del cluster.
 * **Grafana sin dashboard de logs o sin datasource Loki:** sincroniza la Application `logging` antes que `grafana`. Evita `ApplyOutOfSyncOnly=true` en la Application de Grafana (el Deployment debe montar el ConfigMap `grafana-dashboard-bookinfo-logs`).
 * **Grafana sin logs de productpage/reviews:** genera tráfico (`curl -L …/productpage`); sincroniza apps `bookinfo-application`, `sm3-control-plane`, `logging` y `grafana`. En el dashboard usa **Container → All** o filtra `container="istio-proxy"` para reviews.
 * **Operadores `Degraded` en Argo CD:** revisa el CSV en OLM; si está `Succeeded`, puedes ignorar el estado en Argo CD.

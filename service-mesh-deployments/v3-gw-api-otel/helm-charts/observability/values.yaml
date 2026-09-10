@@ -4,6 +4,12 @@ kiali:
 
 otel-collector:
   enabled: true
+  dynatrace:
+    enabled: false
+    environmentId: ""
+    secret:
+      create: false
+      name: otel-dynatrace-ingest
 
 tempo-stack:
   enabled: true  

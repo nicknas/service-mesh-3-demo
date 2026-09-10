@@ -1,35 +1,98 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "minio.fullname" . }}-create-bucket
+  name: {{ include "minio.fullname" . }}-create-buckets
   namespace: {{ .Values.namespace }}
   annotations:
     argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
 spec:
-  backoffLimit: 6
+  backoffLimit: {{ .Values.bucketJob.backoffLimit }}
+  ttlSecondsAfterFinished: {{ .Values.bucketJob.ttlSecondsAfterFinished }}
   template:
     spec:
+      serviceAccountName: {{ include "minio.fullname" . }}-bucket-job
       restartPolicy: OnFailure
-      containers:
-        - name: mc
-          image: "{{ .Values.mcImage.repository }}:{{ .Values.mcImage.tag }}"
-          imagePullPolicy: {{ .Values.mcImage.pullPolicy }}
+      securityContext:
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: wait-minio
+          image: "{{ .Values.bucketJob.waitImage.repository }}:{{ .Values.bucketJob.waitImage.tag }}"
+          imagePullPolicy: {{ .Values.bucketJob.waitImage.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
           command:
             - /bin/sh
             - -ec
             - |
-              until mc alias set local {{ include "minio.endpoint" . }} "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"; do
-                echo "waiting for minio..."
-                sleep 5
+              set -e
+              URL="{{ include "minio.endpoint" . }}/minio/health/ready"
+              attempt=0
+              max={{ .Values.bucketJob.waitAttempts }}
+              until curl -sf "$URL"; do
+                attempt=$((attempt + 1))
+                if [ "$attempt" -ge "$max" ]; then
+                  echo "ERROR: MinIO not ready at $URL after ${max} attempts"
+                  exit 1
+                fi
+                echo "waiting for minio... (${attempt}/${max})"
+                sleep {{ .Values.bucketJob.waitSeconds }}
               done
-              mc mb --ignore-existing local/{{ .Values.bucket }}
-              mc anonymous set download local/{{ .Values.bucket }} || true
-              mc mb --ignore-existing local/{{ .Values.lokiBucket }}
-              mc anonymous set download local/{{ .Values.lokiBucket }} || true
+              echo "minio is ready"
+          resources:
+            {{- toYaml .Values.bucketJob.resources | nindent 12 }}
+      containers:
+        - name: mc
+          image: "{{ .Values.mcImage.repository }}:{{ .Values.mcImage.tag }}"
+          imagePullPolicy: {{ .Values.mcImage.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              set -e
+              MC="mc --config-dir /var/mc"
+              ${MC} alias set local "${MINIO_ENDPOINT}" "${MINIO_ROOT_USER}" "${MINIO_ROOT_PASSWORD}"
+              {{- range .Values.buckets }}
+              echo "creating bucket {{ . }}..."
+              ${MC} mb --ignore-existing local/{{ . }}
+              ${MC} anonymous set download local/{{ . }} || true
+              {{- end }}
+              echo "buckets ready: {{ join ", " .Values.buckets }}"
           env:
-            - name: MC_CONFIG_DIR
-              value: /tmp/.mc
+            - name: MINIO_ENDPOINT
+              value: {{ include "minio.endpoint" . | quote }}
             - name: MINIO_ROOT_USER
               value: {{ .Values.auth.rootUser | quote }}
             - name: MINIO_ROOT_PASSWORD
               value: {{ .Values.auth.rootPassword | quote }}
+            - name: HOME
+              value: /var/mc
+            - name: MC_CONFIG_DIR
+              value: /var/mc
+          volumeMounts:
+            - name: mc-config
+              mountPath: /var/mc
+          resources:
+            {{- toYaml .Values.bucketJob.resources | nindent 12 }}
+      volumes:
+        - name: mc-config
+          emptyDir: {}

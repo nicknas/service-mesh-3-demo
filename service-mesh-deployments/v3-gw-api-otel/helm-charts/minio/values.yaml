@@ -14,8 +14,11 @@ auth:
   rootUser: tempo
   rootPassword: tempo12345
 
+# Bucket principal referenciado por el Secret de Tempo
 bucket: tempo
-lokiBucket: loki
+buckets:
+  - tempo
+  - loki
 
 service:
   port: 9000
@@ -23,6 +26,24 @@ service:
 persistence:
   enabled: true
   size: 5Gi
+
+bucketJob:
+  backoffLimit: 6
+  ttlSecondsAfterFinished: 300
+  waitAttempts: 60
+  waitSeconds: 5
+  # Init container: espera /minio/health/ready (no usa mc alias set en bucle)
+  waitImage:
+    repository: curlimages/curl
+    tag: "8.5.0"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
 
 resources:
   requests:

@@ -1,2 +1,14 @@
-add:
-  cosas: true
+dynatrace:
+  # Fan-out opcional: envía trazas del mesh a Dynatrace SaaS además de Tempo.
+  # Desactivado por defecto; ver README <<dynatrace-tempo-coexistence>>.
+  enabled: false
+  # ID del tenant SaaS (sin .live.dynatrace.com). Ejemplo: abc12345
+  environmentId: ""
+  # Override opcional del endpoint OTLP HTTP (por defecto se construye desde environmentId)
+  endpoint: ""
+  secret:
+    # Si false, crea el Secret manualmente en istio-system antes de activar
+    create: false
+    name: otel-dynatrace-ingest
+    # Solo para pruebas locales con helm template/upgrade; no commitear tokens reales
+    apiToken: ""

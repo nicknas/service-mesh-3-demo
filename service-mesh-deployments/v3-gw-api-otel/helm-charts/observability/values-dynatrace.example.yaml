@@ -1,0 +1,17 @@
+# Ejemplo de activación del fan-out Tempo + Dynatrace SaaS.
+# Uso con Argo CD (source.helm.valueFiles) o helm upgrade -f values-dynatrace.example.yaml
+#
+# 1. Crear el Secret de ingest (no commitear el token):
+#    oc create secret generic otel-dynatrace-ingest -n istio-system \
+#      --from-literal=apiToken='dt0c01.XXXXXXXX'
+#
+# 2. Sustituir YOUR_ENV_ID por el ID del tenant Dynatrace SaaS.
+# 3. Sincronizar la Application observability.
+
+otel-collector:
+  dynatrace:
+    enabled: true
+    environmentId: YOUR_ENV_ID
+    secret:
+      create: false
+      name: otel-dynatrace-ingest
