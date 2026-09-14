@@ -8,7 +8,7 @@ metadata:
     argocd.argoproj.io/sync-wave: "2"
 spec:
   serviceAccount: otel-collector
-  {{- if .Values.dynatrace.enabled }}
+  {{- if and .Values.dynatrace.enabled (eq (include "otel-collector.dynatrace.saas" .) "true") }}
   env:
     - name: DT_API_TOKEN
       valueFrom:
@@ -37,8 +37,10 @@ spec:
       {{- if .Values.dynatrace.enabled }}
       otlphttp/dynatrace:
         endpoint: {{ include "otel-collector.dynatrace.endpoint" . | quote }}
+        {{- if eq (include "otel-collector.dynatrace.saas" .) "true" }}
         headers:
           Authorization: "Api-Token ${env:DT_API_TOKEN}"
+        {{- end }}
       {{- end }}
     receivers:
       otlp:

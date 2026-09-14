@@ -1,17 +1,21 @@
 #----------------------------------------------------------------------------------
-# Deploys Kiali, OTel collector, and Tempo (requires minio app)
+# Dynatrace Operator — opcional; en clusters BBVA suele estar preinstalado
+# (namespace dynatrace-operator, mismo CSV desde catálogo interno Platform Core).
+# Este chart usa certified-operators (Red Hat). Solo sincronizar si:
+# oc get subscription dynatrace-operator -n dynatrace-operator
+# no existe.
 #----------------------------------------------------------------------------------
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: observability
+  name: dynatrace-operator
   namespace: openshift-gitops
   finalizers:
     - resources-finalizer.argocd.argoproj.io/foreground
 spec:
   destination:
     server: 'https://kubernetes.default.svc'
-    namespace: istio-system
+    namespace: dynatrace-operator
   project: default
   syncPolicy:
     automated:
@@ -22,8 +26,4 @@ spec:
   source:
     repoURL: https://github.com/nicknas/service-mesh-3-demo.git
     targetRevision: main
-    path: service-mesh-deployments/v3-gw-api-otel/helm-charts/observability
-    helm:
-      valueFiles:
-        - values-cluster-bbgmb-dynatrace.yaml
-
+    path: service-mesh-deployments/v3-gw-api-otel/helm-charts/dynatrace-operator

@@ -1,29 +1,31 @@
 #----------------------------------------------------------------------------------
-# Deploys Kiali, OTel collector, and Tempo (requires minio app)
+# DynaKube — opcional; en clusters BBVA el operador ya está preinstalado.
+# Patrón managed (BBVA): values-bbva.example.yaml
+# Patrón SaaS ingest:      values.example.yaml
 #----------------------------------------------------------------------------------
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: observability
+  name: dynatrace
   namespace: openshift-gitops
   finalizers:
     - resources-finalizer.argocd.argoproj.io/foreground
 spec:
   destination:
     server: 'https://kubernetes.default.svc'
-    namespace: istio-system
+    namespace: dynatrace-operator
   project: default
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
     syncOptions:
-      - CreateNamespace=true
+      - CreateNamespace=false
   source:
     repoURL: https://github.com/nicknas/service-mesh-3-demo.git
     targetRevision: main
-    path: service-mesh-deployments/v3-gw-api-otel/helm-charts/observability
-    helm:
-      valueFiles:
-        - values-cluster-bbgmb-dynatrace.yaml
-
+    path: service-mesh-deployments/v3-gw-api-otel/helm-charts/dynatrace
+    # Desactivado en bbgmb: usar Dynatrace SaaS vía 11-observability + values-cluster-bbgmb-dynatrace.yaml
+    # helm:
+    #   valueFiles:
+    #     - values-cluster-bbgmb.yaml

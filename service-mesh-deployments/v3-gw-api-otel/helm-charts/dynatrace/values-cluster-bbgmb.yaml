@@ -1,0 +1,82 @@
+# Dynatrace Managed — réplica del patrón aso1-es-dev para cluster demo
+# cluster-bbgmb.dyn.redhatworkshops.io
+#
+# Requisitos previos (ejecutar desde utils/deploy-dynatrace-cluster-bbgmb.sh):
+#   - Operador Dynatrace (05-dynatrace-operator.yaml o preinstalado)
+#   - Secret dynakube con apiToken BBVA
+#   - ConfigMap ca-dynatrace (clave certs) en dynatrace-operator
+#   - Nodos etiquetados: dynatraceOneAgent=enabled
+#
+# Ajustes vs aso1 (cluster workshop pequeño, sin nodos infra dedicados):
+#   - activeGate: 1 réplica, sin nodeSelector infra
+#   - Mismo apiUrl, imágenes y capacidades que aso1
+# Desactivado en bbgmb: usar observability/values-cluster-bbgmb-dynatrace.yaml (SaaS)
+
+enabled: false
+
+namespace: dynatrace-operator
+
+dynaKube:
+  # Operador certified-operators v1.10.2 (solo sirve v1beta5/v1beta6)
+  apiVersion: dynatrace.com/v1beta6
+  mode: managed
+  name: cluster-bbgmb-ch-es-work
+  apiUrl: "https://dynacmc.work.es.nextgen.igrupobbva/e/8dbf4e82-0132-4e04-a014-3656d5878b09/api"
+  networkZone: cluster-bbgmb-ch-es-work
+  dynatraceApiRequestThreshold: 15
+
+  annotations:
+    automaticKubernetesApiMonitoring: true
+    oneagentSeccompProfile: ""
+
+  activeGate:
+    enabled: true
+    replicas: 1
+    capabilities:
+      - routing
+      - kubernetes-monitoring
+      - dynatrace-api
+    image: dynacmc.work.es.nextgen.igrupobbva/linux/activegate:latest
+    nodeSelector: {}
+    tolerations: []
+    resources:
+      limits:
+        cpu: 1
+        memory: 1536Mi
+      requests:
+        cpu: 100m
+        memory: 512Mi
+
+  oneAgent:
+    classicFullStack:
+      enabled: true
+      autoUpdate: false
+      image: dynacmc.work.es.nextgen.igrupobbva/linux/oneagent:latest
+      nodeSelector:
+        dynatraceOneAgent: enabled
+      tolerations:
+        - key: node-role.kubernetes.io/worker
+          operator: Exists
+      env:
+        - name: DT_SSLVERIFYHOST
+          value: "false"
+        - name: DT_SSLVERIFYPEER
+          value: "false"
+      resources:
+        limits:
+          cpu: 1
+          memory: 1536Mi
+        requests:
+          cpu: 100m
+          memory: 512Mi
+
+  metadataEnrichment:
+    enabled: false
+
+secret:
+  create: false
+  name: dynakube
+
+trustedCA:
+  create: false
+  name: ca-dynatrace
