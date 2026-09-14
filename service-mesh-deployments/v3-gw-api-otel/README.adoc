@@ -37,7 +37,12 @@ Si vas a usar tu propio fork, actualiza el campo `spec.source.repoURL` en todos 
 
 === Arquitectura del despliegue
 
-image::images/service-mesh-gw-api.png.excalidraw.png[]
+[mermaid]
+....
+include::images/service-mesh-gw-api.mmd[]
+....
+
+Fuente editable: `images/service-mesh-gw-api.mmd`
 
 Los componentes se organizan en Applications de Argo CD independientes. El orden de aplicación es importante en el arranque inicial:
 
@@ -484,7 +489,12 @@ El manifest `11-observability.yaml` despliega:
 
 Chart: `helm-charts/observability`
 
-image::images/sm3-otel-tempo.excalidraw.png[]
+[mermaid]
+....
+include::images/sm3-otel-tempo.mmd[]
+....
+
+Fuente editable: `images/sm3-otel-tempo.mmd`
 
 [[dynatrace-tempo-coexistence]]
 ==== Coexistencia Dynatrace SaaS + Tempo
@@ -515,56 +525,23 @@ En entornos donde el cliente ya usa **Dynatrace SaaS** y planea desplegar **Temp
 
 El patrón clave es **un solo origen de trazas** (Istio) y **un solo colector intermedio** (OpenTelemetry Collector RH), con **exportación en paralelo** a dos backends independientes. No compiten por el mismo puerto ni sustituyen uno al otro: cada uno cumple un rol distinto en consulta y almacenamiento.
 
-====== Vista general (ingesta + consulta)
+Extiende el diagrama de observabilidad base (`sm3-otel-tempo.mmd`) añadiendo el fan-out hacia Dynatrace SaaS:
 
-[source]
-----
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  namespace: bookinfo                                                          │
-│  ┌──────────────┐   mTLS mesh    ┌──────────────┐                            │
-│  │ productpage  │◄──────────────►│   reviews    │  ... ratings, details     │
-│  │  + sidecar   │                │  + sidecar   │                            │
-│  └──────┬───────┘                └──────────────┘                            │
-│         │ OTLP gRPC :4317 (solo hacia el collector, vía extensionProvider)    │
-└─────────┼───────────────────────────────────────────────────────────────────┘
-          │
-          ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  namespace: istio-system                                                      │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  OpenTelemetryCollector `otel`  (RH OpenTelemetry Operator)         │    │
-│  │  Receiver: otlp/grpc :4317                                          │    │
-│  │  Pipeline traces: [otlp] → exporters (fan-out en paralelo)          │    │
-│  └────────────┬───────────────────────────────────────┬──────────────────┘    │
-│               │ OTLP gRPC + Bearer (SA token)         │ OTLP HTTP + Api-Token │
-└───────────────┼───────────────────────────────────────┼──────────────────────┘
-                │                                       │
-                ▼                                       ▼
-┌───────────────────────────────┐       ┌───────────────────────────────────┐
-│  namespace: tracing-system    │       │  Internet / SaaS                  │
-│  ┌─────────────────────────┐  │       │  https://{ENV_ID}.live.dynatrace  │
-│  │ TempoStack gateway      │  │       │         .com/api/v2/otlp          │
-│  │ :8090 (gRPC OTLP)       │  │       │  Secret: otel-dynatrace-ingest   │
-│  └───────────┬─────────────┘  │       │  (istio-system)                   │
-│              ▼                 │       └───────────────────────────────────┘
-│  ┌─────────────────────────┐  │
-│  │ MinIO (S3) — bucket tempo │  │
-│  └─────────────────────────┘  │
-└───────────────────────────────┘
-                │
-                │  consulta (read path, independiente de la ingesta)
-                ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  Consumidores in-cluster (no pasan por Dynatrace)                             │
-│  • Kiali  ──► Tempo internal_url (traces en topology / workload)             │
-│  • Grafana ──► datasource Tempo (dashboards Bookinfo)                        │
-│  • Consola OpenShift OSSMC ──► Tempo (plugin observabilidad distribuida)     │
-└─────────────────────────────────────────────────────────────────────────────┘
+[mermaid]
+....
+include::images/sm3-otel-tempo-dynatrace.mmd[]
+....
 
-                Dynatrace SaaS (consulta separada, UI externa)
-                • Distributed traces, Smartscape, alerting corporativo
-                • Mismas trazas que Tempo, vía fan-out del collector
-----
+Fuente editable: `images/sm3-otel-tempo-dynatrace.mmd`
+
+Leyenda del diagrama (mismo estilo que `sm3-otel-tempo.mmd`):
+
+* **trazas (push)** — sidecar Bookinfo → `otel collector service` (`istio-system`).
+* **span** — `otel collector` → gateway Tempo (`tracing-system`).
+* **trazas (otlphttp)** — `otel collector` → tenant Dynatrace SaaS (`/api/v2/otlp`); fan-out en paralelo al envío a Tempo.
+* **consulta** (línea discontinua) — consultas externas a gateway Tempo, `istio service` y `bookinfo app container`; UI Dynatrace → tenant SaaS.
+* **configura** — Prometheus configura `service monitor` e `pod monitor`.
+* **métricas (pull)** — Prometheus scrapea sidecars y ServiceMonitor (sin cambios respecto al diagrama base).
 
 ====== Flujo por capas
 
@@ -654,18 +631,6 @@ service:
 | Con operador Dynatrace
 | `14-dynatrace.yaml` + `values.example.yaml` (`saas-ingest`); collector apunta a `telemetry-ingest:4318`
 |===
-
-====== Arquitectura simplificada (referencia rápida)
-
-[source]
-----
-Istio sidecars (OTLP gRPC :4317)
-        │
-        ▼
-OpenTelemetry Collector (istio-system)  ─── pipeline traces (fan-out)
-        ├──► otlp/tempo ──► Tempo :8090 ──► MinIO ──► Kiali / Grafana / OSSMC
-        └──► otlphttp/dynatrace ──► https://{env-id}.live.dynatrace.com/api/v2/otlp
-----
 
 Para **probar en cluster-bbgmb** usa modo **SaaS** (`values-cluster-bbgmb-dynatrace.yaml`); no requiere `05-dynatrace-operator` ni `14-dynatrace`.
 
