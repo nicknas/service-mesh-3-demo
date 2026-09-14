@@ -37,12 +37,32 @@ Si vas a usar tu propio fork, actualiza el campo `spec.source.repoURL` en todos 
 
 === Arquitectura del despliegue
 
-[mermaid]
-....
-include::images/service-mesh-gw-api.mmd[]
-....
+<!-- mermaid:service-mesh-gw-api:start -->
+[source,mermaid]
+----
+flowchart LR
+  client["my-app.hostname.com"]
 
-Fuente editable: `images/service-mesh-gw-api.mmd`
+  subgraph ingress["istio-ingress"]
+    gateway["k8s gateway"]
+  end
+
+  subgraph bookinfo["bookinfo"]
+    httproute["http route"]
+    subgraph pod["bookinfo app pod"]
+      direction TB
+      sidecar["envoy sidecar"]
+      app["app container"]
+    end
+  end
+
+  client --> gateway
+  gateway --> sidecar
+  httproute -.-> gateway
+----
+<!-- mermaid:service-mesh-gw-api:end -->
+
+Fuente editable: `images/service-mesh-gw-api.mmd` (tras editar, ejecutar `python3 utils/sync-mermaid-to-readme.py` para GitHub)
 
 Los componentes se organizan en Applications de Argo CD independientes. El orden de aplicación es importante en el arranque inicial:
 
@@ -489,12 +509,72 @@ El manifest `11-observability.yaml` despliega:
 
 Chart: `helm-charts/observability`
 
-[mermaid]
-....
-include::images/sm3-otel-tempo.mmd[]
-....
+<!-- mermaid:sm3-otel-tempo:start -->
+[source,mermaid]
+----
+flowchart TB
+  classDef metrics fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+  classDef external fill:#fafafa,stroke:#666,color:#333
 
-Fuente editable: `images/sm3-otel-tempo.mmd`
+  subgraph tracing["tracing-system (TempoStack)"]
+    direction TB
+    object_storage[(object storage)]
+    ingester[ingester]
+    querier[querier]
+    compactor[compactor]
+    distributor[distributor]
+    query_frontend[query frontend]
+    gateway[gateway]
+
+    gateway -->|span| distributor
+    gateway -.->|consulta| query_frontend
+    distributor --> ingester
+    query_frontend --> querier
+    ingester --> object_storage
+    querier --> object_storage
+    compactor -.-> ingester
+  end
+
+  subgraph istio["istio-system"]
+    direction TB
+    istiod[istiod]
+    istio_service[istio service]
+    service_monitor[service monitor]
+    otel_collector[otel collector]
+    otel_collector_service[otel collector service]
+
+    service_monitor --> istio_service
+    istio_service --> istiod
+    otel_collector_service --> otel_collector
+  end
+
+  subgraph bookinfo["bookinfo"]
+    direction TB
+    subgraph bookinfo_pod["bookinfo app pod"]
+      direction TB
+      sidecar[sidecar]
+      app_container[bookinfo app container]
+    end
+    pod_monitor[pod monitor]
+  end
+
+  prom[["prometheus (métricas)"]]:::metrics
+
+  consulta_tempo([consulta]):::external -.-> gateway
+  consulta_istio([consulta]):::external -.-> istio_service
+  consulta_app([consulta]):::external -.-> app_container
+
+  sidecar -->|trazas push| otel_collector_service
+  otel_collector -->|span| gateway
+
+  prom -.->|configura| service_monitor
+  prom -.->|configura| pod_monitor
+  prom ==>|métricas pull| service_monitor
+  prom ==>|métricas pull| sidecar
+----
+<!-- mermaid:sm3-otel-tempo:end -->
+
+Fuente editable: `images/sm3-otel-tempo.mmd` (tras editar, ejecutar `python3 utils/sync-mermaid-to-readme.py` para GitHub)
 
 [[dynatrace-tempo-coexistence]]
 ==== Coexistencia Dynatrace SaaS + Tempo
@@ -527,12 +607,79 @@ El patrón clave es **un solo origen de trazas** (Istio) y **un solo colector in
 
 Extiende el diagrama de observabilidad base (`sm3-otel-tempo.mmd`) añadiendo el fan-out hacia Dynatrace SaaS:
 
-[mermaid]
-....
-include::images/sm3-otel-tempo-dynatrace.mmd[]
-....
+<!-- mermaid:sm3-otel-tempo-dynatrace:start -->
+[source,mermaid]
+----
+flowchart TB
+  classDef metrics fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+  classDef external fill:#fafafa,stroke:#666,color:#333
+  classDef saas fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
 
-Fuente editable: `images/sm3-otel-tempo-dynatrace.mmd`
+  subgraph tracing["tracing-system (TempoStack)"]
+    direction TB
+    object_storage[(object storage)]
+    ingester[ingester]
+    querier[querier]
+    compactor[compactor]
+    distributor[distributor]
+    query_frontend[query frontend]
+    gateway[gateway]
+
+    gateway -->|span| distributor
+    gateway -.->|consulta| query_frontend
+    distributor --> ingester
+    query_frontend --> querier
+    ingester --> object_storage
+    querier --> object_storage
+    compactor -.-> ingester
+  end
+
+  subgraph dynatrace["dynatrace saas"]
+    tenant["tenant *.live.dynatrace.com<br/>/api/v2/otlp"]:::saas
+  end
+
+  subgraph istio["istio-system"]
+    direction TB
+    istiod[istiod]
+    istio_service[istio service]
+    service_monitor[service monitor]
+    otel_collector[otel collector]
+    otel_collector_service[otel collector service]
+
+    service_monitor --> istio_service
+    istio_service --> istiod
+    otel_collector_service --> otel_collector
+  end
+
+  subgraph bookinfo["bookinfo"]
+    direction TB
+    subgraph bookinfo_pod["bookinfo app pod"]
+      direction TB
+      sidecar[sidecar]
+      app_container[bookinfo app container]
+    end
+    pod_monitor[pod monitor]
+  end
+
+  prom[["prometheus (métricas)"]]:::metrics
+
+  consulta_tempo([consulta]):::external -.-> gateway
+  consulta_istio([consulta]):::external -.-> istio_service
+  consulta_app([consulta]):::external -.-> app_container
+  consulta_dt([consulta]):::external -.-> tenant
+
+  sidecar -->|trazas push| otel_collector_service
+  otel_collector -->|span| gateway
+  otel_collector -->|trazas otlphttp| tenant
+
+  prom -.->|configura| service_monitor
+  prom -.->|configura| pod_monitor
+  prom ==>|métricas pull| service_monitor
+  prom ==>|métricas pull| sidecar
+----
+<!-- mermaid:sm3-otel-tempo-dynatrace:end -->
+
+Fuente editable: `images/sm3-otel-tempo-dynatrace.mmd` (tras editar, ejecutar `python3 utils/sync-mermaid-to-readme.py` para GitHub)
 
 Leyenda del diagrama (mismo estilo que `sm3-otel-tempo.mmd`):
 
