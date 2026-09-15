@@ -1,6 +1,12 @@
-namespace: logging-system
-
 nameOverride: logging
+
+clusterLogForwarder:
+  name: instance
+  serviceAccountName: collector
+  outputName: lokistack-out
+  pipelineName: application-logs
+  inputRefs:
+    - application
 
 lokiStack:
   name: logging
@@ -15,23 +21,3 @@ lokiStack:
     bucket: loki
     accessKeyId: tempo
     accessKeySecret: tempo12345
-
-alloy:
-  image:
-    repository: grafana/alloy
-    tag: "v1.8.1"
-    pullPolicy: IfNotPresent
-  resources:
-    requests:
-      cpu: 100m
-      memory: 128Mi
-    limits:
-      cpu: 500m
-      memory: 256Mi
-  bookinfo:
-    namespace: bookinfo
-    apps:
-      - productpage
-      - reviews
-      - details
-      - ratings

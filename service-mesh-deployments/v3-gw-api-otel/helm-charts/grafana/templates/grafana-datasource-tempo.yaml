@@ -29,7 +29,7 @@ spec:
         filterByTraceID: true
         mapTagNamesEnabled: true
         tags:
-          - key: namespace
+          - key: kubernetes_namespace_name
             value: bookinfo
       serviceMap:
         datasourceUid: prometheus

@@ -1,6 +1,6 @@
 apiVersion: v2
 name: logging
-description: LokiStack (Loki Operator) and Grafana Alloy collector for Bookinfo workloads
+description: LokiStack (Loki Operator) and ClusterLogForwarder (OpenShift Logging) for application logs
 type: application
 version: 0.1.0
 appVersion: "1.0"

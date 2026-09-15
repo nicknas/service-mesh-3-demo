@@ -8,7 +8,7 @@
 Consulta también:
 
 - [demo-metrics-cheat-sheet.md](demo-metrics-cheat-sheet.md) — queries PromQL de **Observe → Metrics**
-- [README.adoc](../README.adoc) — arquitectura del stack de logging (Loki + Alloy)
+- [README.adoc](../README.adoc) — arquitectura del stack de logging (OpenShift Logging + Loki)
 
 ---
 
@@ -37,7 +37,7 @@ Cliente → Página del producto → Detalles del libro
 - [ ] Menú **Service Mesh** visible en consola
 - [ ] Generar tráfico previo: `./utils/generate-traffic.sh 20` o 15× F5
 - [ ] Grafana accesible con datasources **Prometheus**, **Tempo** y **Loki**
-- [ ] Logging en ejecución: `oc get lokistack logging -n openshift-logging` y `oc get pods -n logging-system` → `logging-alloy` Running; pods LokiStack en `openshift-logging`
+- [ ] Logging en ejecución: `oc get clusterlogforwarder instance -n openshift-logging`; `oc get lokistack logging -n openshift-logging`; pods collector y LokiStack en `openshift-logging`
 - [ ] Tener a mano (segunda pantalla / notas):
   - Comando fallo: `oc scale deployment ratings-v1 -n bookinfo --replicas=0`
   - Comando recuperación: `oc scale deployment ratings-v1 -n bookinfo --replicas=1`
@@ -303,9 +303,9 @@ oc scale deployment ratings-v1 -n bookinfo --replicas=1
 | Métricas de productpage    | Workloads → productpage-v1 → Service Mesh → Traffic / Inbound / Outbound            |
 | Una visita paso a paso     | Misma ruta → Traces → Span Details                                                  |
 | Métricas Prometheus raw    | Observe → Metrics o Grafana → Bookinfo ([cheat sheet](demo-metrics-cheat-sheet.md)) |
-| Logs de un servicio        | Grafana → Bookinfo — Logs o Explore → Loki (`{namespace="bookinfo", app="…"}`)      |
+| Logs de un servicio        | Grafana → Bookinfo — Logs o Explore → Loki (`{kubernetes_namespace_name="bookinfo"}`) |
 | Comprobar scrape sidecars  | Observe → Targets                                                                   |
-| Comprobar colector de logs | `oc get pods -n logging-system`                                                     |
+| Comprobar colector de logs | `oc get pods -n openshift-logging`                                                  |
 
 
 ---
@@ -321,9 +321,9 @@ oc scale deployment ratings-v1 -n bookinfo --replicas=1
 | No aparece Traces                         | Verificar tráfico reciente; refrescar consola                             |
 | Queries sin datos                         | Observe → Targets; comprobar PodMonitor UP                                |
 | ratings no afecta mucho                   | Alternativa: apagar reviews-v1,v2,v3 (más dramático)                      |
-| Logs vacíos en Grafana                    | Generar tráfico; rango *Last 15m*; `oc get pods -n logging-system`        |
+| Logs vacíos en Grafana                    | Generar tráfico; rango *Last 15m*; `oc get clusterlogforwarder instance -n openshift-logging` |
 | Solo aparecen details/ratings             | Normal sin el fix: esas apps loguean cada request. Tras sync: productpage (Gunicorn) y reviews (`istio-proxy`) |
-| Aparece `loki.source.kubernetes.bookinfo` | Logs viejos; filtrar por `app` o acotar a últimos 5 min                   |
+| Etiquetas Loki distintas a las del dashboard | Usar *Label browser* en Explore; consultar `kubernetes_namespace_name` y filtros `| json` |
 | No sale dashboard Bookinfo — Logs         | Sincronizar Argo apps `logging` y `grafana`; reiniciar deployment Grafana |
 
 
@@ -348,7 +348,7 @@ oc get pods -n bookinfo
 oc get podmonitor istio-proxies-monitor -n bookinfo
 oc get lokistack logging -n openshift-logging
 oc get pods -n openshift-logging
-oc get pods -n logging-system
+oc get clusterlogforwarder instance -n openshift-logging
 ```
 
 ---
@@ -370,8 +370,9 @@ El stack solo tenía **métricas** (Prometheus/Kiali) y **trazas** (OTel → Tem
 | ------------------- | ---------------------------------------- | ------------------------------------------------ |
 | **Loki Operator**   | `05-loki-operator.yaml`                  | Operador Red Hat (`redhat-operators`, canal `stable-6.5`) |
 | **LokiStack**       | `helm-charts/logging`                    | Almacén de logs (S3 en MinIO, tenant `application`) |
-| **Grafana Alloy**   | mismo chart                              | Lee stdout de pods `bookinfo` vía API Kubernetes |
-| **Argo CD app**     | `13-logging.yaml`                        | Alloy en `logging-system` + LokiStack en `openshift-logging` |
+| **OpenShift Logging Operator** | `05-openshift-logging-operator.yaml` | Operador `cluster-logging` (canal `stable-6.5`) |
+| **ClusterLogForwarder** | `helm-charts/logging`              | Colector Vector → LokiStack (input `application`) |
+| **Argo CD app**     | `13-logging.yaml`                        | LokiStack + CLF en `openshift-logging` |
 | **Grafana Loki DS** | `helm-charts/grafana`                    | Consulta logs desde dashboards y Explore         |
 | **Dashboard logs**  | `configmap-dashboard-bookinfo-logs.yaml` | Panel con filtros por servicio y versión         |
 | **Bookinfo fix**    | `bookinfo-application.yaml`              | Gunicorn access log en productpage; Telemetry access logs para Envoy |
@@ -382,9 +383,9 @@ El stack solo tenía **métricas** (Prometheus/Kiali) y **trazas** (OTel → Tem
 ### Flujo de datos
 
 ```
-productpage / reviews / details / ratings (stdout)
-    → Alloy (filtra istio-proxy, etiqueta app/version)
-    → Loki
+Pods de aplicación (stdout, cluster-wide)
+    → ClusterLogForwarder / Vector (openshift-logging)
+    → LokiStack
     → Grafana (Explore o dashboard Bookinfo — Logs)
 ```
 
@@ -392,11 +393,11 @@ productpage / reviews / details / ratings (stdout)
 
 ### Orden de despliegue Argo
 
-`11 observability` → `13 logging` → `12 grafana` (Grafana necesita la URL de Loki).
+`05 openshift-logging-operator` → `11 observability` → `13 logging` → `12 grafana`.
 
 ### Qué NO recoge (decisión de demo)
 
-- OpenShift ClusterLogForwarder / operador de logging de plataforma
+- Logs de infraestructura/auditoría de plataforma (solo input `application`)
 - Archivos en disco dentro del contenedor (p. ej. `/tmp/logs` de Liberty)
 
 

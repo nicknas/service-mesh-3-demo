@@ -12,9 +12,9 @@ Este directorio contiene los manifiestos de Argo CD y los charts Helm necesarios
 * **OpenShift Service Mesh 3** (modo sidecar) con https://kubernetes.io/docs/concepts/services-networking/gateway/[Kubernetes Gateway API]
 * Aplicación de ejemplo **Bookinfo**
 * **Ingress gateway** basado en Gateway API
-* Stack de **observabilidad**: Kiali, OpenTelemetry Collector, MinIO, Tempo, Loki, Grafana Alloy y Grafana (Dynatrace Operator + fan-out opcional a Dynatrace SaaS)
+* Stack de **observabilidad**: Kiali, OpenTelemetry Collector, MinIO, Tempo, Loki (OpenShift Logging), Grafana (Dynatrace Operator + fan-out opcional a Dynatrace SaaS)
 
-El despliegue se realiza mediante **OpenShift GitOps** (Argo CD). Los manifiestos `01`–`13` (más `05-grafana-operator`) definen las Applications de Argo CD que sincronizan los charts Helm desde Git.
+El despliegue se realiza mediante **OpenShift GitOps** (Argo CD). Los manifiestos `01`–`13` (más `05-grafana-operator` y `05-openshift-logging-operator`) definen las Applications de Argo CD que sincronizan los charts Helm desde Git.
 
 [NOTE]
 ====
@@ -79,6 +79,7 @@ Los componentes se organizan en Applications de Argo CD independientes. El orden
 | 5b | `cluster-observability-operator` | `05-cluster-observability-operator.yaml`
 | 5c | `grafana-operator` | `05-grafana-operator.yaml`
 | 5d | `dynatrace-operator` _(opcional)_ | `05-dynatrace-operator.yaml`
+| 5e | `openshift-logging-operator` | `05-openshift-logging-operator.yaml`
 | 6 | `sm3-control-plane` | `06-control-plane.yaml`
 | 7 | `bookinfo-application` | `07-bookinfo-application.yaml`
 | 8 | `istio-ingressgateway` | `08-istio-ingress-gateway.yaml`
@@ -94,7 +95,9 @@ Los componentes se organizan en Applications de Argo CD independientes. El orden
 ====
 La Application `minio` debe sincronizarse **antes** que `observability`, ya que Tempo necesita el almacenamiento de objetos S3 que proporciona MinIO.
 
-La Application `logging` debe sincronizarse **después** de `loki-operator` y `minio` (LokiStack usa MinIO como backend S3) y **antes** que `grafana`, ya que el datasource de Loki apunta al gateway del LokiStack en `openshift-logging`.
+La Application `openshift-logging-operator` debe sincronizarse **antes** que `logging` (el `ClusterLogForwarder` lo gestiona el operador de OpenShift Logging).
+
+La Application `logging` debe sincronizarse **después** de `loki-operator`, `openshift-logging-operator` y `minio` (LokiStack usa MinIO como backend S3) y **antes** que `grafana`, ya que el datasource de Loki apunta al gateway del LokiStack en `openshift-logging`.
 
 La Application `grafana-operator` debe sincronizarse con el resto de operadores (antes del control plane y de la instancia Grafana).
 
@@ -213,7 +216,7 @@ Comprueba también el control plane, MinIO y logging:
 oc get istio default -n istio-system
 oc get pods -n tracing-system
 oc get tempostack tempo -n tracing-system
-oc get pods -n logging-system
+oc get clusterlogforwarder instance -n openshift-logging
 oc get lokistack -n openshift-logging
 oc get pods -n openshift-logging
 ----
@@ -234,7 +237,7 @@ Cada pod debe mostrar `2/2 Running` (aplicación + `istio-proxy`).
 == Componentes desplegados
 
 [[operators-olm]]
-=== Operadores OLM (Applications 01–05 y 05-grafana-operator)
+=== Operadores OLM (Applications 01–05, 05-grafana-operator y 05-openshift-logging-operator)
 
 Los operadores se instalan vía Operator Lifecycle Manager (OLM). Cada uno tiene un chart Helm con `Subscription` y, salvo el Cluster Observability Operator, una versión fijada (`startingCSV`) en su `values.yaml`.
 
@@ -276,6 +279,10 @@ oc get packagemanifest <operator-name> -n openshift-marketplace -o jsonpath='{.s
 | `redhat-operators`
 | `loki-operator.v6.5.0` — canal `stable-6.5`
 
+| **OpenShift Logging Operator**
+| `redhat-operators`
+| `cluster-logging-operator.v6.5.2` — canal `stable-6.5`
+
 | **Cluster Observability Operator**
 | `redhat-operators`
 | Canal `stable` (sin CSV fijado; última versión del catálogo)
@@ -304,7 +311,7 @@ oc get packagemanifest <operator-name> -n openshift-marketplace \
 
 [NOTE]
 ====
-Esta comparativa **no incluye OpenShift Logging** (`cluster-logging`): la demo usa solo el **Loki Operator** + `LokiStack` con recolección mediante Grafana Alloy, sin `ClusterLogForwarder`.
+La recolección de logs usa **OpenShift Logging** (`cluster-logging` + `ClusterLogForwarder`) hacia un **LokiStack** de Red Hat. Grafana consulta el mismo gateway LokiStack (tenant `application`).
 ====
 
 [cols="2,2,2", options="header"]
@@ -338,6 +345,10 @@ Esta comparativa **no incluye OpenShift Logging** (`cluster-logging`): la demo u
 | **Loki Operator**
 | `loki-operator.v6.5.2`
 | `loki-operator.v6.6.2`
+
+| **OpenShift Logging Operator**
+| `cluster-logging-operator.v6.5.2`
+| `cluster-logging-operator.v6.6.2`
 |===
 
 ==== Instancias gestionadas por operador
@@ -364,6 +375,10 @@ Estos componentes no son operadores OLM; usan CRs de operadores ya instalados, d
 | `helm-charts/logging` → `LokiStack`
 | Loki Operator
 
+| **ClusterLogForwarder**
+| `helm-charts/logging` → `ClusterLogForwarder`
+| OpenShift Logging Operator
+
 | **OpenTelemetry Collector**
 | `helm-charts/observability/charts/otel-collector` → `OpenTelemetryCollector`
 | OpenTelemetry Operator
@@ -389,12 +404,13 @@ for f in \
   03-otel-operator.yaml \
   04-tempo-operator.yaml \
   05-loki-operator.yaml \
+  05-openshift-logging-operator.yaml \
   05-cluster-observability-operator.yaml \
   05-grafana-operator.yaml; do
   oc apply -f "$f"
 done
 
-oc get csv -A | grep -E 'servicemesh|kiali|opentelemetry|tempo|loki|cluster-observability|grafana'
+oc get csv -A | grep -E 'servicemesh|kiali|opentelemetry|tempo|loki|cluster-logging|cluster-observability|grafana'
 ----
 
 ==== Verificación rápida de operadores
@@ -412,10 +428,79 @@ oc get pods -n openshift-cluster-observability-operator
 [NOTE]
 ====
 * **Grafana Operator** proviene de `community-operators`, no de `redhat-operators`. Requiere acceso al catálogo community en OperatorHub.
-* **Cluster Observability Operator** habilita Perses y plugins de observabilidad en consola (`Observe → Dashboards`). No sustituye a Grafana en esta demo.
+* **Cluster Observability Operator (COO)** no sustituye al **Cluster Monitoring Operator (CMO)** ni despliega un segundo Prometheus en esta demo; ver <<cmo-vs-coo>>.
 * Los subcharts de observabilidad (`kiali`, `otel-collector`, `tempostack`) son locales (`file://`); no se empaquetan como `.tgz` en el repositorio.
 * Si has instalado y desinstalado Service Mesh 2 previamente y la instalación del operador de Service Mesh 3 se queda bloqueada, elimina los CRDs antiguos de `sailoperator` que hayan quedado en el cluster.
 ====
+
+[[cmo-vs-coo]]
+==== CMO vs COO: ¿recursos duplicados?
+
+OpenShift incluye por defecto el **Cluster Monitoring Operator (CMO)**, que gestiona el monitoring integrado de la plataforma. El **Cluster Observability Operator (COO)** es un operador adicional que amplía la experiencia de observabilidad en consola y puede desplegar stacks propios *solo si se crean los CR correspondientes*.
+
+===== Qué despliega cada operador
+
+[cols="2,2,2", options="header"]
+|===
+| Capacidad | CMO (incluido en OCP) | COO (Application `05-cluster-observability-operator`)
+
+| **Métricas (Prometheus)**
+| Prometheus de plataforma (`openshift-monitoring`) y, si está activo, User Workload Monitoring (`openshift-user-workload-monitoring`)
+| *No* despliega Prometheus al instalar el operador. Solo crea Prometheus/Alertmanager/Thanos si defines un CR `MonitoringStack` (no usado en esta demo)
+
+| **Trazas**
+| No despliega backend de trazas
+| No despliega Tempo. El `UIPlugin` `distributed-tracing` enlaza la consola con el `TempoStack` del Tempo Operator
+
+| **Consola OpenShift**
+| Dashboards y alertas del monitoring por defecto
+| Plugins en `Observe` (p. ej. trazas distribuidas, Perses/dashboards si se configuran)
+
+| **Alertmanager / Thanos**
+| Gestionados por CMO en los namespaces de monitoring de OpenShift
+| Solo si creas un `MonitoringStack` del COO
+|===
+
+[IMPORTANT]
+====
+**Instalar el COO no duplica automáticamente los recursos del CMO.** Son stacks independientes según la documentación de Red Hat: el monitoring por defecto sigue siendo responsabilidad del CMO; el COO añade capacidades adicionales (consola, `MonitoringStack` opcional, Perses, etc.).
+====
+
+===== Qué usa esta demo (sin duplicar backends de CMO)
+
+[cols="2,3", options="header"]
+|===
+| Necesidad | Componente en esta demo
+
+| Métricas del mesh (sidecars, istiod)
+| **CMO** — User Workload Monitoring habilitado (`cluster-monitoring-config` → `enableUserWorkload: true`) + `ServiceMonitor`/`PodMonitor` del chart `observability`
+
+| Backend de trazas
+| **Tempo Operator** + `TempoStack` (no COO ni CMO)
+
+| Recolección OTLP desde Istio
+| **OpenTelemetry Operator** + `OpenTelemetryCollector` en `istio-system`
+
+| Trazas en Kiali / Grafana
+| Kiali y Grafana consultan el mismo `TempoStack`
+
+| Trazas en consola (`Observe → Traces`)
+| **COO** + CR `UIPlugin` (`helm-charts/observability/charts/tempostack/templates/observability-plugin.yaml`)
+
+| Dashboards
+| **Grafana** (Grafana Operator). Perses vía COO no se despliega en esta demo
+|===
+
+===== Cuándo sí podría haber solapamiento
+
+* **COO + CR `MonitoringStack`:** se crea un Prometheus/Alertmanager/Thanos *adicional* al del CMO (por diseño, para casos multi-tenant o stacks dedicados). No ocurre en esta demo porque no se aplica ningún `MonitoringStack`.
+* **Selectores de scrape coincidentes:** si un `MonitoringStack` del COO y el User Workload Monitoring del CMO apuntan a los mismos `ServiceMonitor`/`PodMonitor`, ambos Prometheus podrían ingerir las mismas métricas (doble scrape, no conflicto de operadores pero sí redundancia de datos).
+* **Varias UIs sobre el mismo backend:** Kiali, consola (COO) y Grafana consultan el *mismo* Tempo; no hay varios TempoStack, pero sí varios puntos de entrada para el usuario.
+* **Fan-out OTel → Tempo + Dynatrace** (opcional): duplicación *intencionada* de trazas hacia dos backends distintos; ver <<dynatrace-tempo-coexistence>>.
+
+===== ¿Puedo omitir el COO?
+
+Sí, si no necesitas el plugin de trazas en la consola de OpenShift (`Observe → Traces`) ni Perses en consola. El stack sigue funcionando con CMO (métricas), Tempo, OTel Collector, Kiali y Grafana. Sin COO, elimina o no sincronices `05-cluster-observability-operator.yaml` y el recurso `UIPlugin` del chart `tempostack` (o deja el CR y no instales el operador — el sync fallará en el `UIPlugin`).
 
 === Control plane (Application 06)
 
@@ -504,8 +589,8 @@ El manifest `11-observability.yaml` despliega:
 * Instancia de **Kiali** y consola OSSM
 * **OpenTelemetry Collector** para recopilar trazas y métricas del mesh
 * **TempoStack** para almacenar trazas (usa el Secret de MinIO creado por la Application anterior)
-* Plugin de observabilidad distribuida en la consola de OpenShift
-* `ServiceMonitor` de istiod y `PodMonitor` de sidecars en `bookinfo`
+* Plugin de observabilidad distribuida en la consola de OpenShift (`UIPlugin` → requiere COO; ver <<cmo-vs-coo>>)
+* `ServiceMonitor` de istiod y `PodMonitor` de sidecars en `bookinfo` (métricas vía CMO / User Workload Monitoring)
 
 Chart: `helm-charts/observability`
 
@@ -927,21 +1012,34 @@ Dynatrace SaaS y Tempo pueden desplegarse en el mismo cluster OpenShift sin conf
 
 === Logging (Application 13)
 
-El manifest `13-logging.yaml` despliega recolección y almacenamiento de **logs de aplicación** de Bookinfo mediante el **Loki Operator** de Red Hat (`LokiStack` CR). Grafana Alloy envía los logs al gateway del LokiStack (tenant `application`). No se instala el operador de logging de OpenShift ni `ClusterLogForwarder`; la recolección sigue siendo Alloy, no el pipeline de plataforma.
+El manifest `13-logging.yaml` despliega almacenamiento y recolección de **logs de aplicación** mediante **OpenShift Logging 6.x** + **Loki Operator** de Red Hat:
 
-Chart: `helm-charts/logging` (LokiStack + Alloy). Operador: `helm-charts/loki-operator` (`05-loki-operator.yaml`).
+* Operador: `helm-charts/cluster-logging-operator` (`05-openshift-logging-operator.yaml`)
+* Chart: `helm-charts/logging` → `LokiStack` + `ClusterLogForwarder`
+* Operador Loki: `helm-charts/loki-operator` (`05-loki-operator.yaml`)
+
+El `ClusterLogForwarder` (Vector) envía logs al gateway del `LokiStack` (tenant `application`). Grafana y la correlación trazas ↔ logs no cambian.
+
+==== Orden de despliegue
+
+. `05-loki-operator.yaml` (canal `stable-6.5`, alineado con Logging 6.5.x)
+. `05-openshift-logging-operator.yaml` (`cluster-logging-operator.v6.5.2`)
+. `13-logging.yaml` (después de `minio`; LokiStack usa MinIO como backend S3)
 
 ==== Arquitectura
 
 [source]
 ----
-Pods Bookinfo (stdout/stderr)
+Pods de aplicación (input application — todo el cluster por defecto)
         │
         ▼
-Grafana Alloy (logging-system)  ──(API Kubernetes: pods/log)──►  filtra namespace bookinfo
-        │                                                          etiquetas: app, version, pod
-        ▼  HTTPS + token SA (tenant application)
-LokiStack gateway (openshift-logging)  ──►  MinIO S3 (bucket loki, tracing-system)
+ClusterLogForwarder / Vector (openshift-logging, SA collector)
+        │  HTTPS + token SA
+        ▼
+LokiStack gateway (openshift-logging, tenant application)
+        │
+        ▼
+MinIO S3 (bucket loki, tracing-system)
         │
         ▼
 Grafana (datasource Loki + dashboard Bookinfo — Logs)
@@ -953,18 +1051,19 @@ Grafana (datasource Loki + dashboard Bookinfo — Logs)
 |===
 | Recurso | Descripción
 
-| Namespace `logging-system` | Colector Grafana Alloy
-| Namespace `openshift-logging` | Instancia `LokiStack` gestionada por el operador
-| **LokiStack** (`logging`) | Almacén de logs (modo `openshift-logging`, tamaño `1x.demo`, backend S3 en MinIO)
-| **Grafana Alloy** (`logging-alloy`) | Colector que lee logs de pods vía API de Kubernetes (sin DaemonSet privilegiado)
+| Namespace `openshift-logging` | `LokiStack` + `ClusterLogForwarder` (`instance`)
+| **LokiStack** (`logging`) | Almacén de logs (tamaño `1x.demo`, backend S3 en MinIO)
+| **ClusterLogForwarder** | Output `lokiStack` → target `logging`; TLS CA en `logging-gateway-ca-bundle`
 | Gateway `logging-gateway-http` | Endpoint interno `:8080` para consultas y push (tenant `application`)
+| Operador `cluster-logging` | Instalado por `helm-charts/cluster-logging-operator`
 |===
 
 ==== Qué se recoge (y qué no)
 
-* **Sí:** stdout/stderr de los contenedores de aplicación (`productpage`, `reviews`, `details`, `ratings`) y access logs de Envoy en `istio-proxy` (namespace `bookinfo`).
-* **No:** contenedor `istio-validation` (filtrado en Alloy).
-* **No:** `ClusterLogForwarder` ni logs de infraestructura/auditoría de plataforma (solo tenant `application` de demo).
+* **Sí:** stdout/stderr de contenedores de aplicación en todo el cluster (input `application`), incluidos Bookinfo (`productpage`, `reviews`, `details`, `ratings`) y access logs de Envoy en `istio-proxy`.
+* **No:** logs de infraestructura/auditoría de plataforma (solo tenant `application` de demo).
+
+Para limitar el alcance del colector, ajusta `clusterLogForwarder.inputRefs` en `helm-charts/logging/values.yaml`.
 
 [NOTE]
 ====
@@ -973,54 +1072,44 @@ Grafana (datasource Loki + dashboard Bookinfo — Logs)
 * `reviews` (Open Liberty) no escribe una línea por petición en el contenedor de aplicación; el tráfico se ve en los access logs de `istio-proxy` del pod.
 ====
 
-==== Etiquetas en Loki
+==== Consulta en Grafana
 
-Alloy añade etiquetas a partir de los metadatos del pod:
-
-[cols="1,2", options="header"]
-|===
-| Etiqueta | Origen
-
-| `namespace` | Namespace del pod (`bookinfo`)
-| `app` | Etiqueta Kubernetes `app` (`productpage`, `reviews`, …)
-| `version` | Etiqueta `version` del pod (`v1`, `v2`, `v3`)
-| `service_name` | Copia de `app` (nombre legible en Grafana Explore)
-| `pod` / `container` | Identificador del pod y contenedor
-|===
-
-En Grafana Explore, agrupa por `service_name` o filtra con LogQL:
+En Grafana Explore, filtra con LogQL (etiquetas de Kubernetes/OpenShift Logging):
 
 [source,logql]
 ----
-{namespace="bookinfo", app="productpage"}
-{namespace="bookinfo", app="reviews", version="v2"}
+{kubernetes_namespace_name="bookinfo", kubernetes_labels_app="productpage"}
+{kubernetes_namespace_name="bookinfo", kubernetes_labels_app="reviews"}
 ----
+
+Las etiquetas exactas pueden variar según la versión del operador; usa *Label browser* en Explore si los nombres difieren.
 
 ==== Cambios en Bookinfo y mesh (visibilidad de logs)
 
 * **productpage:** el chart sobrescribe el comando de Gunicorn con `--access-logfile -` para enviar el access log a stdout.
-* **reviews:** Open Liberty no registra cada petición en stdout; se habilitan access logs de Envoy (`Telemetry` `access-logs` + `meshConfig.accessLogFile: /dev/stdout`) y Alloy recoge el contenedor `istio-proxy`.
+* **reviews:** Open Liberty no registra cada petición en stdout; se habilitan access logs de Envoy (`Telemetry` `access-logs` + `meshConfig.accessLogFile: /dev/stdout`) para que el colector de plataforma recoja el contenedor `istio-proxy`.
 * **LOG_DIR:** no se usa en reviews (los logs de Liberty iban a ficheros bajo `/tmp/logs`, invisibles para el colector de Kubernetes).
 
-==== Configuración de Alloy
+==== Configuración del ClusterLogForwarder
 
-El fichero `helm-charts/logging/templates/alloy-configmap.yaml` define:
+El fichero `helm-charts/logging/templates/cluster-log-forwarder.yaml` define:
 
-. *discovery.kubernetes*: pods en `bookinfo` con `app in (productpage, reviews, details, ratings)`.
-. *discovery.relabel*: mapea `namespace`, `app`, `version`, `pod`, `container` y `service_name`.
-. *loki.source.kubernetes*: transmite los logs al pipeline.
-. *loki.process*: descarta solo el contenedor `istio-validation`.
-. *loki.write*: envía a `https://logging-gateway-http.openshift-logging.svc:8080/api/logs/v1/application/loki/api/v1/push` con token del ServiceAccount y CA del cluster.
+. Input `application` (logs de aplicación del cluster).
+. Output `lokiStack` apuntando al `LokiStack` `logging` en `openshift-logging`.
+. Autenticación con token del ServiceAccount `collector` y CA del gateway en `logging-gateway-ca-bundle`.
+
+Parámetros en `helm-charts/logging/values.yaml` → bloque `clusterLogForwarder`.
 
 ==== Verificación
 
 [source,bash]
 ----
+oc get csv -n openshift-operators-redhat | grep cluster-logging
+oc get clusterlogforwarder instance -n openshift-logging
 oc get lokistack logging -n openshift-logging
 oc get pods -n openshift-logging
-oc get pods -n logging-system
 # Tras generar tráfico a Bookinfo, en Grafana Explore (datasource Loki):
-#   {namespace="bookinfo", app="productpage"}
+#   {kubernetes_namespace_name="bookinfo"}
 ----
 
 === Grafana Operator (Application 05-grafana-operator)
@@ -1219,6 +1308,7 @@ Para métricas de aplicación usa *metrics merging* de Istio: declara `prometheu
 | `otel-operator` | `helm-charts/otel-operator`
 | `tempo-operator` | `helm-charts/tempo-operator`
 | `loki-operator` | `helm-charts/loki-operator`
+| `openshift-logging-operator` | `helm-charts/cluster-logging-operator`
 | `cluster-observability-operator` | `helm-charts/cluster-observability-operator`
 | `grafana-operator` | `helm-charts/grafana-operator`
 | `dynatrace-operator` _(opcional)_ | `helm-charts/dynatrace-operator`
@@ -1275,7 +1365,7 @@ oc delete gitopsservice cluster --ignore-not-found
 oc delete argocd openshift-gitops -n openshift-gitops --ignore-not-found
 
 # 7. Eliminar namespaces de demo
-for ns in bookinfo istio-ingress istio-system istio-cni tracing-system logging-system openshift-logging grafana-system dynatrace-operator \
+for ns in bookinfo istio-ingress istio-system istio-cni tracing-system openshift-logging grafana-system dynatrace-operator \
   openshift-gitops-operator openshift-tempo-operator openshift-operators-redhat \
   openshift-cluster-observability-operator openshift-gitops; do
   oc delete namespace "$ns" --ignore-not-found --wait=false

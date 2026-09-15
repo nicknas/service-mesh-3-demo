@@ -16,10 +16,6 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- printf "%s-gateway-http" .Values.lokiStack.name -}}
 {{- end }}
 
-{{- define "logging.lokiStack.pushUrl" -}}
-{{- printf "https://%s.%s.svc.cluster.local:8080/api/logs/v1/%s/loki/api/v1/push" (include "logging.lokiStack.gatewayService" .) .Values.lokiStack.namespace .Values.lokiStack.tenant -}}
-{{- end }}
-
-{{- define "logging.bookinfoAppSelector" -}}
-{{- join ", " .Values.alloy.bookinfo.apps }}
+{{- define "logging.lokiStack.gatewayCaConfigMap" -}}
+{{- printf "%s-gateway-ca-bundle" .Values.lokiStack.name -}}
 {{- end }}

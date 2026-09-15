@@ -1,0 +1,8 @@
+subscription:
+  channel: stable-6.5
+  installPlanApproval: Automatic
+  name: cluster-logging-operator
+  namespace: openshift-operators-redhat
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+  startingCSV: cluster-logging-operator.v6.5.2
