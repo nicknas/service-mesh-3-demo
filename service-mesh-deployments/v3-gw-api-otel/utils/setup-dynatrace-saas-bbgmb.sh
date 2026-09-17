@@ -46,7 +46,8 @@ echo "[dynatrace-saas] Esperando rollout del collector..."
 oc rollout status deployment -n "$NS" -l app.kubernetes.io/name=opentelemetry-collector --timeout=120s 2>/dev/null \
   || oc get pods -n "$NS" -l app.kubernetes.io/name=opentelemetry-collector
 
-echo "[dynatrace-saas] Comprueba logs:"
-echo "  oc logs -n $NS -l app.kubernetes.io/name=opentelemetry-collector --tail=30"
+echo "[dynatrace-saas] Validación OTLP..."
+"${SCRIPT_DIR}/validate-dynatrace-otlp.sh" || true
+
 echo "[dynatrace-saas] Genera tráfico: ./utils/generate-traffic.sh 30"
 echo "[dynatrace-saas] En Dynatrace SaaS: Distributed traces → filtrar por service.name"

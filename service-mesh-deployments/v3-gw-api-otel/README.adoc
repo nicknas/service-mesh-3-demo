@@ -986,6 +986,19 @@ En clusters sin operador preinstalado (ej. ple2-es-dev solo tiene operador vací
 
 ===== Verificación
 
+Script automatizado (estático + cluster + egress si hay `oc` y token):
+
+[source,bash]
+----
+./utils/validate-dynatrace-otlp.sh
+# Solo manifiestos Helm:
+./utils/validate-dynatrace-otlp.sh --static
+# Probar HTTPS al tenant (requiere DT_ENV_ID y DT_API_TOKEN o Secret en cluster):
+DT_ENV_ID=abc12345 DT_API_TOKEN='dt0c01.…' ./utils/validate-dynatrace-otlp.sh --egress
+----
+
+Pasos manuales:
+
 . Genera tráfico: `./utils/generate-traffic.sh 30`
 . **Tempo / Kiali:** pestaña *Traces* en un workload de Bookinfo (sin cambios).
 . **Dynatrace:** en *Distributed traces*, filtrar por `service.name` (por ejemplo `productpage.bookinfo`).
@@ -994,7 +1007,7 @@ Comprobar que el collector exporta sin errores:
 
 [source,bash]
 ----
-oc logs -n istio-system -l app.kubernetes.io/name=otel-collector --tail=50
+oc logs -n istio-system -l app.kubernetes.io/name=opentelemetry-collector --tail=50
 oc get opentelemetrycollector otel -n istio-system -o yaml | grep -A3 otlphttp
 ----
 
