@@ -8,14 +8,6 @@ metadata:
     argocd.argoproj.io/sync-wave: "2"
 spec:
   serviceAccount: otel-collector
-  {{- if and .Values.dynatrace.enabled (eq (include "otel-collector.dynatrace.saas" .) "true") }}
-  env:
-    - name: DT_API_TOKEN
-      valueFrom:
-        secretKeyRef:
-          name: {{ .Values.dynatrace.secret.name }}
-          key: apiToken
-  {{- end }}
   observability:
     metrics: {}
   config:
@@ -34,14 +26,6 @@ spec:
           authenticator: bearertokenauth
         headers:
           X-Scope-OrgID: "bookinfo"
-      {{- if .Values.dynatrace.enabled }}
-      otlphttp/dynatrace:
-        endpoint: {{ include "otel-collector.dynatrace.endpoint" . | quote }}
-        {{- if eq (include "otel-collector.dynatrace.saas" .) "true" }}
-        headers:
-          Authorization: "Api-Token ${env:DT_API_TOKEN}"
-        {{- end }}
-      {{- end }}
     receivers:
       otlp:
         protocols:
@@ -59,7 +43,7 @@ spec:
           exporters: [debug, otlp/tempo]
         traces:
           receivers: [otlp]
-          exporters: [{{ include "otel-collector.traces.exporters" . }}]
+          exporters: [debug, otlp/tempo]
       telemetry:
         metrics:
           readers:

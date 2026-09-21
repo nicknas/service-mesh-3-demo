@@ -1,16 +1,3 @@
-dynatrace:
-  # Fan-out opcional: envía trazas del mesh a Dynatrace además de Tempo.
-  # Desactivado por defecto; ver README <<dynatrace-tempo-coexistence>>.
-  enabled: false
-  # saas:   tenant SaaS directo (HTTP + Api-Token) — modo de prueba recomendado
-  # ingest: gateway DynaKube (telemetry-ingest.dynatrace:4318) — requiere operador
-  mode: saas
-  environmentId: ""
-  endpoint: ""
-  ingest:
-    service: telemetry-ingest.dynatrace.svc.cluster.local
-    port: 4318
-  secret:
-    create: false
-    name: otel-dynatrace-ingest
-    apiToken: ""
+# Subchart values for OpenTelemetry Collector.
+# Traces export to Tempo only (otlp/tempo).
+{}

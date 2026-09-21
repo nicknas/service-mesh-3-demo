@@ -23,7 +23,3 @@ spec:
     repoURL: https://github.com/nicknas/service-mesh-3-demo.git
     targetRevision: main
     path: service-mesh-deployments/v3-gw-api-otel/helm-charts/observability
-    helm:
-      valueFiles:
-        - values-cluster-bbgmb-dynatrace.yaml
-

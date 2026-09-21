@@ -4,16 +4,6 @@ kiali:
 
 otel-collector:
   enabled: true
-  dynatrace:
-    enabled: false
-    mode: saas
-    environmentId: ""
-    ingest:
-      service: telemetry-ingest.dynatrace.svc.cluster.local
-      port: 4318
-    secret:
-      create: false
-      name: otel-dynatrace-ingest
 
 tempo-stack:
-  enabled: true  
+  enabled: true

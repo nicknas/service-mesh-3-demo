@@ -1,6 +1,0 @@
-apiVersion: v2
-name: dynatrace
-description: DynaKube for Dynatrace Managed (BBVA) or SaaS telemetry ingest
-type: application
-version: 0.2.0
-appVersion: "1.5.1"

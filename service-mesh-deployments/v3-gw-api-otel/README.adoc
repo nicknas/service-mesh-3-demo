@@ -12,7 +12,7 @@ Este directorio contiene los manifiestos de Argo CD y los charts Helm necesarios
 * **OpenShift Service Mesh 3** (modo sidecar) con https://kubernetes.io/docs/concepts/services-networking/gateway/[Kubernetes Gateway API]
 * Aplicación de ejemplo **Bookinfo**
 * **Ingress gateway** basado en Gateway API
-* Stack de **observabilidad**: Kiali, OpenTelemetry Collector, MinIO, Tempo, Loki (OpenShift Logging), Grafana (Dynatrace Operator + fan-out opcional a Dynatrace SaaS)
+* Stack de **observabilidad**: Kiali, OpenTelemetry Collector, MinIO, Tempo, Loki (OpenShift Logging) y Grafana
 
 El despliegue se realiza mediante **OpenShift GitOps** (Argo CD). Los manifiestos `01`–`13` (más `05-grafana-operator` y `05-openshift-logging-operator`) definen las Applications de Argo CD que sincronizan los charts Helm desde Git.
 
@@ -78,14 +78,12 @@ Los componentes se organizan en Applications de Argo CD independientes. El orden
 | 5 | `loki-operator` | `05-loki-operator.yaml`
 | 5b | `cluster-observability-operator` | `05-cluster-observability-operator.yaml`
 | 5c | `grafana-operator` | `05-grafana-operator.yaml`
-| 5d | `dynatrace-operator` _(opcional)_ | `05-dynatrace-operator.yaml`
-| 5e | `openshift-logging-operator` | `05-openshift-logging-operator.yaml`
+| 5d | `openshift-logging-operator` | `05-openshift-logging-operator.yaml`
 | 6 | `sm3-control-plane` | `06-control-plane.yaml`
 | 7 | `bookinfo-application` | `07-bookinfo-application.yaml`
 | 8 | `istio-ingressgateway` | `08-istio-ingress-gateway.yaml`
 | 9 | `bookinfo-gateway` | `09-bookinfo-gateway.yaml`
 | 10 | `minio` | `10-minio.yaml`
-| 10b | `dynatrace` _(opcional)_ | `14-dynatrace.yaml`
 | 11 | `observability` | `11-observability.yaml`
 | 12 | `logging` | `13-logging.yaml`
 | 13 | `grafana` | `12-grafana.yaml`
@@ -290,10 +288,6 @@ oc get packagemanifest <operator-name> -n openshift-marketplace -o jsonpath='{.s
 | **Grafana Operator**
 | `community-operators`
 | `grafana-operator.v5.24.0` — canal `v5`
-
-| **Dynatrace Operator** _(opcional; preinstalado en clusters BBVA)_
-| `certified-operators`
-| `dynatrace-operator.v1.5.1` — canal `alpha` _(imágenes: `registry.connect.redhat.com/dynatrace/...`)_
 |===
 
 [[operators-version-matrix]]
@@ -386,10 +380,6 @@ Estos componentes no son operadores OLM; usan CRs de operadores ya instalados, d
 | **Grafana** (instancia demo)
 | `helm-charts/grafana` → `Grafana`, `GrafanaDatasource`, `GrafanaDashboard`
 | Grafana Operator
-
-| **DynaKube** _(opcional)_
-| `helm-charts/dynatrace` → `DynaKube` (`telemetryIngest`)
-| Dynatrace Operator
 |===
 
 ==== Orden de instalación de operadores
@@ -496,7 +486,6 @@ OpenShift incluye por defecto el **Cluster Monitoring Operator (CMO)**, que gest
 * **COO + CR `MonitoringStack`:** se crea un Prometheus/Alertmanager/Thanos *adicional* al del CMO (por diseño, para casos multi-tenant o stacks dedicados). No ocurre en esta demo porque no se aplica ningún `MonitoringStack`.
 * **Selectores de scrape coincidentes:** si un `MonitoringStack` del COO y el User Workload Monitoring del CMO apuntan a los mismos `ServiceMonitor`/`PodMonitor`, ambos Prometheus podrían ingerir las mismas métricas (doble scrape, no conflicto de operadores pero sí redundancia de datos).
 * **Varias UIs sobre el mismo backend:** Kiali, consola (COO) y Grafana consultan el *mismo* Tempo; no hay varios TempoStack, pero sí varios puntos de entrada para el usuario.
-* **Fan-out OTel → Tempo + Dynatrace** (opcional): duplicación *intencionada* de trazas hacia dos backends distintos; ver <<dynatrace-tempo-coexistence>>.
 
 ===== ¿Puedo omitir el COO?
 
@@ -660,368 +649,6 @@ flowchart TB
 <!-- mermaid:sm3-otel-tempo:end -->
 
 Fuente editable: `images/sm3-otel-tempo.mmd` (tras editar, ejecutar `python3 utils/sync-mermaid-to-readme.py` para GitHub)
-
-[[dynatrace-tempo-coexistence]]
-==== Coexistencia Dynatrace SaaS + Tempo
-
-En entornos donde el cliente ya usa **Dynatrace SaaS** y planea desplegar **Tempo** en sus clusters OpenShift (por ejemplo para Service Mesh, Kiali o Grafana), ambos backends **pueden coexistir sin conflicto**. No es necesario elegir uno u otro.
-
-===== Roles complementarios
-
-[cols="1,2,2", options="header"]
-|===
-| | Dynatrace SaaS | Tempo (in-cluster)
-
-| **Propósito**
-| Observabilidad corporativa (APM, infra, alerting, Smartscape…)
-| Backend de trazas del stack mesh (Kiali, Grafana, consola OpenShift)
-
-| **Consulta**
-| UI Dynatrace / equipos de plataforma
-| Kiali, Grafana, Jaeger UI del gateway Tempo
-
-| **Almacenamiento**
-| Tenant cloud
-| Object storage en cluster (MinIO en esta demo)
-|===
-
-[[dynatrace-tempo-architecture]]
-===== Diagrama de arquitectura: fan-out Tempo + Dynatrace
-
-El patrón clave es **un solo origen de trazas** (Istio) y **un solo colector intermedio** (OpenTelemetry Collector RH), con **exportación en paralelo** a dos backends independientes. No compiten por el mismo puerto ni sustituyen uno al otro: cada uno cumple un rol distinto en consulta y almacenamiento.
-
-Extiende el diagrama de observabilidad base (`sm3-otel-tempo.mmd`) añadiendo el fan-out hacia Dynatrace SaaS:
-
-<!-- mermaid:sm3-otel-tempo-dynatrace:start -->
-[source,mermaid]
-----
-flowchart TB
-  classDef metrics fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
-  classDef external fill:#fafafa,stroke:#666,color:#333
-  classDef saas fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
-
-  subgraph tracing["tracing-system (TempoStack)"]
-    direction TB
-    object_storage[(object storage)]
-    ingester[ingester]
-    querier[querier]
-    compactor[compactor]
-    distributor[distributor]
-    query_frontend[query frontend]
-    gateway[gateway]
-
-    gateway -->|span| distributor
-    gateway -.->|consulta| query_frontend
-    distributor --> ingester
-    query_frontend --> querier
-    ingester --> object_storage
-    querier --> object_storage
-    compactor -.-> ingester
-  end
-
-  subgraph dynatrace["dynatrace saas"]
-    tenant["tenant *.live.dynatrace.com<br/>/api/v2/otlp"]:::saas
-  end
-
-  subgraph istio["istio-system"]
-    direction TB
-    istiod[istiod]
-    istio_service[istio service]
-    service_monitor[service monitor]
-    otel_collector[otel collector]
-    otel_collector_service[otel collector service]
-
-    service_monitor --> istio_service
-    istio_service --> istiod
-    otel_collector_service --> otel_collector
-  end
-
-  subgraph bookinfo["bookinfo"]
-    direction TB
-    subgraph bookinfo_pod["bookinfo app pod"]
-      direction TB
-      sidecar[sidecar]
-      app_container[bookinfo app container]
-    end
-    pod_monitor[pod monitor]
-  end
-
-  prom[["prometheus (métricas)"]]:::metrics
-
-  consulta_tempo([consulta]):::external -.-> gateway
-  consulta_istio([consulta]):::external -.-> istio_service
-  consulta_app([consulta]):::external -.-> app_container
-  consulta_dt([consulta]):::external -.-> tenant
-
-  sidecar -->|trazas push| otel_collector_service
-  otel_collector -->|span| gateway
-  otel_collector -->|trazas otlphttp| tenant
-
-  prom -.->|configura| service_monitor
-  prom -.->|configura| pod_monitor
-  prom ==>|métricas pull| service_monitor
-  prom ==>|métricas pull| sidecar
-----
-<!-- mermaid:sm3-otel-tempo-dynatrace:end -->
-
-Fuente editable: `images/sm3-otel-tempo-dynatrace.mmd` (tras editar, ejecutar `python3 utils/sync-mermaid-to-readme.py` para GitHub)
-
-Leyenda del diagrama (mismo estilo que `sm3-otel-tempo.mmd`):
-
-* **trazas (push)** — sidecar Bookinfo → `otel collector service` (`istio-system`).
-* **span** — `otel collector` → gateway Tempo (`tracing-system`).
-* **trazas (otlphttp)** — `otel collector` → tenant Dynatrace SaaS (`/api/v2/otlp`); fan-out en paralelo al envío a Tempo.
-* **consulta** (línea discontinua) — consultas externas a gateway Tempo, `istio service` y `bookinfo app container`; UI Dynatrace → tenant SaaS.
-* **configura** — Prometheus configura `service monitor` e `pod monitor`.
-* **métricas (pull)** — Prometheus scrapea sidecars y ServiceMonitor (sin cambios respecto al diagrama base).
-
-====== Flujo por capas
-
-[cols="1,2,3,2", options="header"]
-|===
-| Capa | Componente | Namespace | Protocolo / puerto
-
-| **Aplicación**
-| Bookinfo (productpage, reviews, details, ratings)
-| `bookinfo`
-| HTTP entre servicios (mesh)
-
-| **Mesh / export**
-| Istio sidecar (`istio-proxy`)
-| `bookinfo`
-| Export OTLP gRPC → `otel-collector.istio-system:4317`
-
-| **Agregación**
-| OpenTelemetry Collector (`otel`)
-| `istio-system`
-| Receiver OTLP :4317; pipeline `traces` con dos exporters
-
-| **Backend mesh**
-| Tempo gateway → TempoStack → MinIO
-| `tracing-system` / `minio`
-| OTLP gRPC :8090; almacén S3
-
-| **Backend corporativo**
-| Dynatrace SaaS tenant
-| _(cloud)_
-| OTLP HTTP `/api/v2/otlp`; header `Authorization: Api-Token`
-
-| **Visualización mesh**
-| Kiali, Grafana, consola OSSMC
-| `istio-system`, `grafana-system`
-| Query API Tempo (no Dynatrace)
-
-| **Visualización corporativa**
-| UI Dynatrace
-| _(cloud)_
-| Distributed traces, APM
-|===
-
-====== Por qué conviven sin conflicto
-
-* **Un único `extensionProvider` en Istio** — el mesh solo conoce al collector RH; no hay que elegir Tempo *o* Dynatrace en la configuración de Istio.
-* **Fan-out en el collector** — cada span de traza se envía a *ambos* exporters del pipeline `traces`; es duplicación intencionada, no competencia.
-* **Consultas separadas** — Kiali/Grafana siguen leyendo **solo Tempo**; Dynatrace tiene su propia UI y retención en SaaS.
-* **Protocolos adaptados** — Istio exporta gRPC; Tempo acepta gRPC; Dynatrace SaaS requiere **HTTP** (`otlphttp/dynatrace`), traducido por el collector.
-* **Secretos independientes** — Tempo usa token del ServiceAccount del collector (Bearer hacia el gateway); Dynatrace usa `otel-dynatrace-ingest` con `Api-Token`.
-
-====== Configuración Helm (pipeline de trazas)
-
-En `helm-charts/observability/charts/otel-collector` el pipeline queda así cuando Dynatrace está activo:
-
-[source,yaml]
-----
-service:
-  pipelines:
-    traces:
-      receivers: [otlp]
-      exporters: [debug, otlp/tempo, otlphttp/dynatrace]   # fan-out
-----
-
-* `otlp/tempo` → `tempo-tempo-gateway.tracing-system.svc.cluster.local:8090`
-* `otlphttp/dynatrace` → `https://{ENV_ID}.live.dynatrace.com/api/v2/otlp`
-
-====== Variantes de despliegue
-
-[cols="2,3,3", options="header"]
-|===
-| Escenario | Cluster | Fichero values / Application
-
-| **Demo workshop (bbgmb)**
-| Público; sin red BBVA
-| `11-observability` + `values-cluster-bbgmb-dynatrace.yaml` o script `utils/setup-dynatrace-saas-bbgmb.sh`
-
-| **Lab / cliente con SaaS**
-| Egress a `*.live.dynatrace.com`
-| `11-observability` + `values-dynatrace.example.yaml`
-
-| **Cliente BBVA Managed** _(referencia aso1)_
-| Red interna; operador preinstalado
-| `DynaKube` + OneAgent/ActiveGate — *no aplicable en bbgmb*; ver <<dynatrace-bbva-managed>>
-
-| **Ingest in-cluster Dynatrace** _(opcional)_
-| Con operador Dynatrace
-| `14-dynatrace.yaml` + `values.example.yaml` (`saas-ingest`); collector apunta a `telemetry-ingest:4318`
-|===
-
-Para **probar en cluster-bbgmb** usa modo **SaaS** (`values-cluster-bbgmb-dynatrace.yaml`); no requiere `05-dynatrace-operator` ni `14-dynatrace`.
-
-Componentes GitOps _(opcionales)_:
-
-[cols="2,2,3", options="header"]
-|===
-| Application | Chart | Función
-
-| `11-observability` + `values-dynatrace.example.yaml` _(o `values-cluster-bbgmb-dynatrace.yaml` en bbgmb)_
-| `helm-charts/observability`
-| Fan-out OTel → Tempo + Dynatrace SaaS _(modo saas)_
-
-| `05-dynatrace-operator.yaml` + `14-dynatrace.yaml`
-| `helm-charts/dynatrace-operator` / `dynatrace`
-| Solo si usas modo `ingest` (gateway in-cluster vía DynaKube)
-|===
-
-Ventajas:
-
-* **Sin cambios en Istio** ni en el flujo Kiali → Tempo de la demo.
-* **Tempo** sigue siendo el backend del mesh local.
-* **Dynatrace** recibe las mismas trazas para correlación con el resto de la plataforma del cliente.
-* **Sin conflicto de puertos**: cada backend tiene su propio endpoint; no se instala un segundo collector de ingest mesh salvo el opcional de Dynatrace Operator (no requerido en este patrón).
-
-[NOTE]
-====
-Dynatrace SaaS acepta OTLP por **HTTP/protobuf**. El collector RH recibe gRPC de Istio y exporta a Tempo (gRPC) y a Dynatrace (HTTP). Para pruebas rápidas usa modo **`saas`** (OTLP directo al tenant con `Api-Token`); no necesitas instalar el Dynatrace Operator.
-====
-
-===== Activación modo SaaS (recomendado para pruebas)
-
-Ver diagrama completo en <<dynatrace-tempo-architecture>>.
-
-. Crear un token en Dynatrace con scope `openTelemetryTrace.ingest`.
-. Crear el Secret en `istio-system` (no commitear el token):
-
-+
-[source,bash]
-----
-oc create secret generic otel-dynatrace-ingest -n istio-system \
-  --from-literal=apiToken='dt0c01.XXXXXXXX'
-----
-
-. Editar `helm-charts/observability/values-dynatrace.example.yaml`: sustituir `YOUR_ENV_ID` por el ID del tenant (ej. `abc12345`, sin el dominio).
-. Activar fan-out en la Application `11-observability.yaml`:
-
-+
-[source,yaml]
-----
-source:
-  helm:
-    valueFiles:
-      - values-dynatrace.example.yaml
-----
-
-O con helm local:
-
-+
-[source,bash]
-----
-helm upgrade observability ./helm-charts/observability -n istio-system \
-  -f ./helm-charts/observability/values-dynatrace.example.yaml
-----
-
-. Comprobar egress HTTPS desde el cluster hacia `https://<ENV_ID>.live.dynatrace.com` (firewall/proxy corporativo).
-
-===== Modo ingest SaaS (opcional, con operador)
-
-Si prefieres gateway in-cluster (`telemetry-ingest:4318`), instala `14-dynatrace.yaml` con `helm-charts/dynatrace/values.example.yaml` (`dynaKube.mode: saas-ingest`). El operador puede estar preinstalado o desplegarse con `05-dynatrace-operator.yaml`.
-
-Fichero de referencia OTel fan-out SaaS: `helm-charts/observability/values-dynatrace.example.yaml`
-
-[[dynatrace-bbva-managed]]
-===== Modo Managed BBVA (referencia: aso1-es-dev)
-
-En clusters BBVA el operador **Dynatrace v1.5.1** suele estar preinstalado en `dynatrace-operator`. El catálogo interno Platform Core (`dynatrace-v1.5.1`) publica el **mismo operador certificado Red Hat** (`dynatrace-operator.v1.5.1`, imágenes en `registry.connect.redhat.com/dynatrace/dynatrace-operator`). Para instalarlo en otros clusters usa `certified-operators` (`05-dynatrace-operator.yaml`).
-
-El patrón `DynaKube` desplegado es:
-
-* **OneAgent** `classicFullStack` en nodos worker (`dynatraceOneAgent=enabled`)
-* **ActiveGate** (2 réplicas) en nodos infra con capacidades `routing`, `kubernetes-monitoring`, `dynatrace-api`
-* Imágenes corporativas en `dynacmc.work.es.nextgen.igrupobbva/linux/`
-* `apiUrl` Managed: `https://dynacmc.work.es.nextgen.igrupobbva/e/<tenant-uuid>/api`
-* Secret `dynakube` (solo `apiToken`) y ConfigMap `ca-dynatrace` (`trustedCAs`)
-* `networkZone` = nombre del cluster
-
-[cols="2,3", options="header"]
-|===
-| Recurso en cluster BBVA | Chart / values de esta demo
-
-| Operador preinstalado (`dynatrace-operator` ns)
-| No sincronizar `05-dynatrace-operator.yaml`
-
-| `DynaKube` (`aso1-es-ch-es-work`)
-| `14-dynatrace.yaml` + `helm-charts/dynatrace/values-bbva.example.yaml`
-
-| OneAgent DaemonSet + ActiveGate StatefulSet
-| `dynaKube.mode: managed` en el chart `dynatrace`
-|===
-
-Activación:
-
-. Comprobar operador: `oc get dynakube,csv -n dynatrace-operator`
-. Crear Secret: `oc create secret generic dynakube -n dynatrace-operator --from-literal=apiToken='...'`
-. Reutilizar o crear `ca-dynatrace` (clave `certs`) si el tenant Managed lo requiere.
-. Etiquetar nodos worker: `oc label node <node> dynatraceOneAgent=enabled`
-. Editar `values-bbva.example.yaml`: `name`, `apiUrl`, `networkZone`, `enabled: true`
-. Sincronizar `14-dynatrace.yaml` (namespace destino: `dynatrace-operator`)
-
-Verificación:
-
-[source,bash]
-----
-oc get dynakube -n dynatrace-operator
-oc get pods -n dynatrace-operator | grep -E 'oneagent|activegate'
-oc get ds -n dynatrace-operator
-----
-
-En clusters sin operador preinstalado (ej. ple2-es-dev solo tiene operador vacío), puedes desplegar el operador con `05-dynatrace-operator.yaml` y luego el `DynaKube`.
-
-===== Verificación
-
-Script automatizado (estático + cluster + egress si hay `oc` y token):
-
-[source,bash]
-----
-./utils/validate-dynatrace-otlp.sh
-# Solo manifiestos Helm:
-./utils/validate-dynatrace-otlp.sh --static
-# Probar HTTPS al tenant (requiere DT_ENV_ID y DT_API_TOKEN o Secret en cluster):
-DT_ENV_ID=abc12345 DT_API_TOKEN='dt0c01.…' ./utils/validate-dynatrace-otlp.sh --egress
-----
-
-Pasos manuales:
-
-. Genera tráfico: `./utils/generate-traffic.sh 30`
-. **Tempo / Kiali:** pestaña *Traces* en un workload de Bookinfo (sin cambios).
-. **Dynatrace:** en *Distributed traces*, filtrar por `service.name` (por ejemplo `productpage.bookinfo`).
-
-Comprobar que el collector exporta sin errores:
-
-[source,bash]
-----
-oc logs -n istio-system -l app.kubernetes.io/name=opentelemetry-collector --tail=50
-oc get opentelemetrycollector otel -n istio-system -o yaml | grep -A3 otlphttp
-----
-
-===== Qué evitar
-
-* No apuntar `meshConfig.extensionProviders` a Dynatrace y al collector RH a la vez.
-* No activar `otlpExporterConfiguration` del Dynatrace Operator en `istio-system` / `bookinfo` si el mesh ya exporta vía collector (riesgo de duplicidad).
-* No usar exporter `otlp` (gRPC) hacia el tenant SaaS de Dynatrace; usar `otlphttp`.
-
-===== Mensaje ejecutivo (cliente)
-
-[quote]
-Dynatrace SaaS y Tempo pueden desplegarse en el mismo cluster OpenShift sin conflicto. La arquitectura recomendada centraliza la telemetría del mesh en un OpenTelemetry Collector y configura exportación en paralelo: Tempo para el ecosistema Service Mesh (Kiali, Grafana) y Dynatrace para la observabilidad corporativa en SaaS. No es necesario renunciar a Tempo por usar Dynatrace, ni viceversa.
-[/quote]
 
 === Logging (Application 13)
 
@@ -1227,7 +854,7 @@ En modo multitenancy de Tempo (`spec.tenants.mode: openshift`), el gateway valid
 ===== Flujo de trazas
 
 . Istio genera spans (Telemetry CR con provider `otel`, sampling al 100 %).
-. El OpenTelemetry Collector los reenvía a Tempo vía OTLP (y opcionalmente a Dynatrace SaaS; ver <<dynatrace-tempo-coexistence>>).
+. El OpenTelemetry Collector los reenvía a Tempo vía OTLP.
 . Tempo los almacena en MinIO.
 . Kiali consulta Tempo mediante `internal_url` y muestra la pestaña *Traces* en workloads y aplicaciones.
 
@@ -1324,8 +951,6 @@ Para métricas de aplicación usa *metrics merging* de Istio: declara `prometheu
 | `openshift-logging-operator` | `helm-charts/cluster-logging-operator`
 | `cluster-observability-operator` | `helm-charts/cluster-observability-operator`
 | `grafana-operator` | `helm-charts/grafana-operator`
-| `dynatrace-operator` _(opcional)_ | `helm-charts/dynatrace-operator`
-| `dynatrace` _(opcional)_ | `helm-charts/dynatrace`
 | `sm3-control-plane` | `helm-charts/sm3-control-plane`
 | `bookinfo-application` | `helm-charts/bookinfo-application`
 | `istio-ingressgateway` | `helm-charts/istio-ingressgateway`
@@ -1353,7 +978,6 @@ oc delete kiali --all -n istio-system --ignore-not-found
 oc delete opentelemetrycollector --all -n istio-system --ignore-not-found
 oc delete tempostack --all -n tracing-system --ignore-not-found
 oc delete lokistack --all -n openshift-logging --ignore-not-found
-oc delete dynakube --all -n dynatrace-operator --ignore-not-found
 oc delete grafana,grafanadatasource,grafanadashboard --all -n grafana-system --ignore-not-found
 
 # 3. Revertir RBAC de GitOps al valor por defecto
@@ -1371,14 +995,13 @@ oc delete subscription tempo-operator -n openshift-tempo-operator --ignore-not-f
 oc delete subscription loki-operator -n openshift-operators-redhat --ignore-not-found
 oc delete subscription cluster-observability-operator \
   -n openshift-cluster-observability-operator --ignore-not-found
-oc delete subscription dynatrace-operator -n dynatrace-operator --ignore-not-found
 
 # 6. Eliminar GitopsService y ArgoCD CR
 oc delete gitopsservice cluster --ignore-not-found
 oc delete argocd openshift-gitops -n openshift-gitops --ignore-not-found
 
 # 7. Eliminar namespaces de demo
-for ns in bookinfo istio-ingress istio-system istio-cni tracing-system openshift-logging grafana-system dynatrace-operator \
+for ns in bookinfo istio-ingress istio-system istio-cni tracing-system openshift-logging grafana-system \
   openshift-gitops-operator openshift-tempo-operator openshift-operators-redhat \
   openshift-cluster-observability-operator openshift-gitops; do
   oc delete namespace "$ns" --ignore-not-found --wait=false

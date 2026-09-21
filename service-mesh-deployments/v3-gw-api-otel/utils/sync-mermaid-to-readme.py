@@ -11,7 +11,6 @@ IMAGES = ROOT / "images"
 DIAGRAMS = {
     "service-mesh-gw-api": "service-mesh-gw-api.mmd",
     "sm3-otel-tempo": "sm3-otel-tempo.mmd",
-    "sm3-otel-tempo-dynatrace": "sm3-otel-tempo-dynatrace.mmd",
 }
 
 START = "<!-- mermaid:{name}:start -->"
