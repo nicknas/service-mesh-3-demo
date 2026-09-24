@@ -1,9 +1,25 @@
+replicas: 1
+
+image:
+  # Contrib: incluye extensión bearertokenauth para Tempo gateway (OpenShift tenants)
+  repository: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib
+  tag: "0.120.0"
+  pullPolicy: IfNotPresent
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
 dynatrace:
   # Fan-out opcional: envía trazas del mesh a Dynatrace además de Tempo.
-  # Desactivado por defecto; ver README <<dynatrace-tempo-coexistence>>.
+  # No requiere Dynatrace Operator (OTLP HTTP directo a SaaS o ingest gateway).
   enabled: false
-  # saas:   tenant SaaS directo (HTTP + Api-Token) — modo de prueba recomendado
-  # ingest: gateway DynaKube (telemetry-ingest.dynatrace:4318) — requiere operador
+  # saas:   tenant SaaS directo (HTTP + Api-Token)
+  # ingest: gateway ya existente (p.ej. telemetry-ingest.dynatrace:4318)
   mode: saas
   environmentId: ""
   endpoint: ""

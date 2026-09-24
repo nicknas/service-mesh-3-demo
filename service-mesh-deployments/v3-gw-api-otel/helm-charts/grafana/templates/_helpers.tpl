@@ -20,18 +20,12 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- printf "https://%s.%s.svc.cluster.local:8080/api/traces/v1/%s" (include "grafana.tempo.gatewayService" .) .Values.datasources.tempo.tempoStack.namespace .Values.datasources.tempo.tempoStack.tenant -}}
 {{- end }}
 
-{{- define "grafana.loki.gatewayService" -}}
-{{- printf "%s-gateway-http" .Values.datasources.loki.lokiStack.name -}}
-{{- end }}
-
 {{- define "grafana.loki.url" -}}
-{{- printf "https://%s.%s.svc.cluster.local:8080/api/logs/v1/%s" (include "grafana.loki.gatewayService" .) .Values.datasources.loki.lokiStack.namespace .Values.datasources.loki.tenant -}}
-{{- end }}
-
-{{- define "grafana.instanceSelector" -}}
-{{- printf "%s: %s" .Values.instance.selectorLabel .Values.instance.selectorValue -}}
-{{- end }}
-
-{{- define "grafana.instanceLabels" -}}
-{{ .Values.instance.selectorLabel }}: {{ .Values.instance.selectorValue | quote }}
+{{- if .Values.datasources.loki.url -}}
+{{- .Values.datasources.loki.url -}}
+{{- else if .Values.datasources.loki.lokiStack -}}
+{{- printf "https://%s-gateway-http.%s.svc.cluster.local:8080/api/logs/v1/%s" .Values.datasources.loki.lokiStack.name .Values.datasources.loki.lokiStack.namespace .Values.datasources.loki.tenant -}}
+{{- else -}}
+{{- printf "http://%s.%s.svc.cluster.local:%v" .Values.datasources.loki.serviceName .Values.datasources.loki.namespace .Values.datasources.loki.port -}}
+{{- end -}}
 {{- end }}

@@ -1,6 +1,6 @@
-# Envoy access logs en stdout para workloads Bookinfo (istio-proxy).
-# Necesario para ver tráfico de productpage y reviews en Loki: esas apps
-# (Gunicorn / Open Liberty) no escriben una línea por petición en el contenedor de aplicación.
+# Envoy access logs en stdout (contenedor istio-proxy).
+# Nota: el ClusterLogForwarder "logging" excluye istio-proxy; los logs de aplicación
+# (contenedores de app) sí se envían a Logstash si el namespace tiene label semaas/namespace.
 apiVersion: telemetry.istio.io/v1
 kind: Telemetry
 metadata:

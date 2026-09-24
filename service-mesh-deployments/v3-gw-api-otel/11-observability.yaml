@@ -1,5 +1,6 @@
 #----------------------------------------------------------------------------------
-# Deploys Kiali, OTel collector, and Tempo (requires minio app)
+# Deploys Kiali (existing operator CR), OTel collector (Helm Deployment), TempoStack
+# (existing Tempo operator). Does NOT install any operators.
 #----------------------------------------------------------------------------------
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -21,9 +22,5 @@ spec:
       - CreateNamespace=true
   source:
     repoURL: https://github.com/nicknas/service-mesh-3-demo.git
-    targetRevision: main
+    targetRevision: feature/dynatrace-coexistence
     path: service-mesh-deployments/v3-gw-api-otel/helm-charts/observability
-    helm:
-      valueFiles:
-        - values-cluster-bbgmb-dynatrace.yaml
-

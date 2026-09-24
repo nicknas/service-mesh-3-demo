@@ -1,23 +1,13 @@
-nameOverride: logging
+# OpenShift Logging is cluster-managed (ClusterLogForwarder "logging" in openshift-logging).
+# This chart does NOT install collectors. It only records which namespaces are opted in
+# via the label that the existing CLF input "semaas-logs" selects.
 
-clusterLogForwarder:
-  name: instance
-  serviceAccountName: collector
-  outputName: lokistack-out
-  pipelineName: application-logs
-  inputRefs:
-    - application
+# Label key required by ClusterLogForwarder input semaas-logs:
+#   matchExpressions: [{ key: semaas/namespace, operator: Exists }]
+labelKey: semaas/namespace
 
-lokiStack:
-  name: logging
-  namespace: openshift-logging
-  size: 1x.demo
-  storage:
-    secretName: logging-loki-s3
-    effectiveDate: "2024-01-01"
-  tenant: application
-  minio:
-    endpoint: http://minio.tracing-system.svc.cluster.local:9000
-    bucket: loki
-    accessKeyId: tempo
-    accessKeySecret: tempo12345
+# Namespaces that should collect application logs (Bookinfo demo targets).
+# Actual labeling is applied to the Namespace object (see bookinfo-application chart
+# and/or: oc label namespace <ns> semaas/namespace=<ns>).
+namespaces:
+  - es-ple-dev

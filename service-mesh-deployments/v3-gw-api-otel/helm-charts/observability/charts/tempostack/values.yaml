@@ -4,3 +4,7 @@ minio:
   accessKeyId: tempo
   accessKeySecret: tempo12345
   insecure: "true"
+
+# UIPlugin DistributedTracing requires Cluster Observability Operator CRD.
+uiPlugin:
+  enabled: false

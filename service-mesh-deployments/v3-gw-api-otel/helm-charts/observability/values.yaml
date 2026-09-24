@@ -16,4 +16,6 @@ otel-collector:
       name: otel-dynatrace-ingest
 
 tempo-stack:
-  enabled: true  
+  enabled: true
+  uiPlugin:
+    enabled: false

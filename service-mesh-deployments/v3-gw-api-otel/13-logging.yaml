@@ -1,6 +1,6 @@
 #----------------------------------------------------------------------------------
-# Deploys LokiStack + OpenShift Logging (ClusterLogForwarder). Sync before Grafana.
-# Requires 05-openshift-logging-operator.yaml.
+# OpenShift Logging (ClusterLogForwarder ya existente en openshift-logging).
+# No despliega Alloy ni Loki: solo documenta el opt-in por label semaas/namespace.
 #----------------------------------------------------------------------------------
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -18,9 +18,7 @@ spec:
     automated:
       prune: true
       selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
   source:
     repoURL: https://github.com/nicknas/service-mesh-3-demo.git
-    targetRevision: main
+    targetRevision: feature/dynatrace-coexistence
     path: service-mesh-deployments/v3-gw-api-otel/helm-charts/logging

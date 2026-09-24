@@ -7,4 +7,6 @@ metadata:
   labels:
     istio-discovery: enabled
     istio-injection: enabled
+    # Opt-in a ClusterLogForwarder "logging" (input semaas-logs) en openshift-logging
+    semaas/namespace: {{ .Values.app.namespace | quote }}
 

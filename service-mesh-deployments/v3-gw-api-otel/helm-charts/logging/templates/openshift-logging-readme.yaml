@@ -1,0 +1,29 @@
+# Documentación desplegable: este cluster ya tiene ClusterLogForwarder "logging".
+# No se crea un segundo colector (Alloy/Loki). La recolección se activa etiquetando
+# el namespace de la app con {{ .Values.labelKey }}.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "logging.fullname" . }}-openshift-logging
+  namespace: openshift-logging
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  labels:
+    {{- include "logging.labels" . | nindent 4 }}
+data:
+  README: |
+    OpenShift Logging (ClusterLogForwarder/logging) recoge logs de aplicación
+    de namespaces con label "{{ .Values.labelKey }}" (Exists).
+    Excluye contenedor istio-proxy. Destino: Logstash funcional BBVA.
+
+    Namespaces previstos por esta demo:
+{{- range .Values.namespaces }}
+    - {{ . }}
+{{- end }}
+
+    Activar:
+      oc label namespace <ns> {{ .Values.labelKey }}=<ns> --overwrite
+
+    Comprobar:
+      oc get clusterlogforwarder logging -n openshift-logging
+      oc get ns -L {{ .Values.labelKey }}

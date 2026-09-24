@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "grafana.fullname" . }}-dashboards
+  namespace: {{ .Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  labels:
+    {{- include "grafana.labels" . | nindent 4 }}
+data:
+  bookinfo-ok.json: |
+{{ .Files.Get "files/bookinfo-ok.json" | indent 4 }}
+  bookinfo-fallo.json: |
+{{ .Files.Get "files/bookinfo-fallo.json" | indent 4 }}
+  bookinfo-logs.json: |
+{{ .Files.Get "files/bookinfo-logs.json" | indent 4 }}

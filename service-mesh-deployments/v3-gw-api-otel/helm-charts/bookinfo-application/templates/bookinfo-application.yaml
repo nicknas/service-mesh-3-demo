@@ -77,6 +77,8 @@ spec:
       - name: details
         image: quay.io/sail-dev/examples-bookinfo-details-v1:1.20.2
         imagePullPolicy: IfNotPresent
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
         ports:
         - containerPort: 9080
 ---
@@ -131,6 +133,8 @@ spec:
       - name: ratings
         image: quay.io/sail-dev/examples-bookinfo-ratings-v1:1.20.2
         imagePullPolicy: IfNotPresent
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
         ports:
         - containerPort: 9080
 ---
@@ -187,6 +191,8 @@ spec:
       - name: reviews
         image: quay.io/sail-dev/examples-bookinfo-reviews-v1:1.20.2
         imagePullPolicy: IfNotPresent
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
         ports:
         - containerPort: 9080
         volumeMounts:
@@ -223,6 +229,8 @@ spec:
       - name: reviews
         image: quay.io/sail-dev/examples-bookinfo-reviews-v2:1.20.2
         imagePullPolicy: IfNotPresent
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
         ports:
         - containerPort: 9080
         volumeMounts:
@@ -259,6 +267,8 @@ spec:
       - name: reviews
         image: quay.io/sail-dev/examples-bookinfo-reviews-v3:1.20.2
         imagePullPolicy: IfNotPresent
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
         ports:
         - containerPort: 9080
         volumeMounts:
@@ -324,6 +334,8 @@ spec:
       - name: productpage
         image: quay.io/sail-dev/examples-bookinfo-productpage-v1:1.20.2
         imagePullPolicy: IfNotPresent
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
         # Gunicorn no registra peticiones HTTP por defecto; enviamos access log a stdout para Loki.
         command: ["gunicorn"]
         args:

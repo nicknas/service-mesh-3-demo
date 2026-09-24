@@ -1,5 +1,6 @@
 apiVersion: v2
 name: grafana
-description: Grafana instance (Grafana Operator CRs) for Bookinfo demo dashboards
+description: Standalone Grafana (Deployment) for Bookinfo demo dashboards — no Grafana Operator
 type: application
-version: 0.1.0
+version: 0.2.0
+appVersion: "11.5.2"

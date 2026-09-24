@@ -22,6 +22,6 @@ spec:
       - CreateNamespace=true
   source:
     repoURL: https://github.com/nicknas/service-mesh-3-demo.git
-    targetRevision: main
+    targetRevision: feature/dynatrace-coexistence
     path: service-mesh-deployments/v3-gw-api-otel/helm-charts/bookinfo-gateway
        

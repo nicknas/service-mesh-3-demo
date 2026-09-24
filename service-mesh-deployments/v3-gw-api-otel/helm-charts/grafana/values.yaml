@@ -2,11 +2,6 @@ namespace: grafana-system
 
 nameOverride: grafana
 
-# Label used by GrafanaDatasource / GrafanaDashboard instanceSelector
-instance:
-  selectorLabel: dashboards
-  selectorValue: bookinfo
-
 image:
   repository: grafana/grafana
   tag: "11.5.2"
@@ -47,11 +42,8 @@ datasources:
       name: tempo
       namespace: tracing-system
       tenant: bookinfo
-    # Host suffix for external Tempo links (optional)
-    clusterDomain: apps.cluster-bbgmb.dyn.redhatworkshops.io
+    clusterDomain: ""
   loki:
-    enabled: true
-    lokiStack:
-      name: logging
-      namespace: openshift-logging
-    tenant: application
+    # Desactivado: en este cluster los logs van a OpenShift Logging → Logstash BBVA
+    # (no hay LokiStack / Loki de demo). Reactivar si existe un backend Loki consultable.
+    enabled: false

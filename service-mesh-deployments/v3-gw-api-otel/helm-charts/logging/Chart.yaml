@@ -1,6 +1,9 @@
 apiVersion: v2
 name: logging
-description: LokiStack (Loki Operator) and ClusterLogForwarder (OpenShift Logging) for application logs
+description: >
+  Opt-in to the cluster OpenShift Logging ClusterLogForwarder (no Alloy, no Loki Operator).
+  On mesh3-es-dev the CLF "logging" in openshift-logging already collects application
+  logs from namespaces labeled semaas/namespace (excludes istio-proxy).
 type: application
-version: 0.1.0
-appVersion: "1.0"
+version: 0.2.0
+appVersion: "6.2"
