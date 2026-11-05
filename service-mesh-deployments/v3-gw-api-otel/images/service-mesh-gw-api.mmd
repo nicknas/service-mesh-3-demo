@@ -1,0 +1,19 @@
+flowchart LR
+  client["my-app.hostname.com"]
+
+  subgraph ingress["istio-ingress"]
+    gateway["k8s gateway"]
+  end
+
+  subgraph bookinfo["bookinfo"]
+    httproute["http route"]
+    subgraph pod["bookinfo app pod"]
+      direction TB
+      sidecar["envoy sidecar"]
+      app["app container"]
+    end
+  end
+
+  client --> gateway
+  gateway --> sidecar
+  httproute -.-> gateway
